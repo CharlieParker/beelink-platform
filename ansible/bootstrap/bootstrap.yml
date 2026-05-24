@@ -8,8 +8,96 @@
     kubectl_version: "v1.30.0"
     k3d_version: "v5.6.0"
     trivy_version: "0.50.2"
+    # Optional: set trivy_sha256 to enable checksum verification
+    # trivy_sha256: "0123456789abcdef...sha256"
+
+  handlers:
+    - name: Restart docker
+      systemd:
+        name: docker
+        state: restarted
+        enabled: true
 
   tasks:
+
+    - name: Remove any existing Docker apt sources and keyrings
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/docker.list
+        - /etc/apt/sources.list.d/docker.list.save
+        - /etc/apt/sources.list.d/docker-ce.list
+        - /etc/apt/sources.list.d/docker-ce.list.save
+        - /etc/apt/sources.list.d/download_docker_com_linux_ubuntu.list
+        - /etc/apt/sources.list.d/download_docker_com_linux_ubuntu.list.save
+        - /etc/apt/sources.list.d/docker.sources
+        - /etc/apt/sources.list.d/docker.sources.save
+        - /usr/share/keyrings/docker-ce.gpg
+        - /etc/apt/keyrings/docker.gpg
+
+    - name: Remove Docker repo from main sources.list if present
+      lineinfile:
+        path: /etc/apt/sources.list
+        regexp: '^deb .*download\.docker\.com'
+        state: absent
+
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Show held packages
+      command: apt-mark showhold
+      register: held_packages
+      changed_when: false
+
+    - name: Unhold held packages (if any)
+      command: apt-mark unhold "{{ item }}"
+      loop: "{{ held_packages.stdout_lines }}"
+      register: unhold_results
+      when: held_packages.stdout_lines | length > 0
+      changed_when: true
+
+    - name: Fail if any unhold operation failed
+      fail:
+        msg: >-
+          One or more packages could not be unheld: {{ failed_unholds | join(', ') }}.
+          Please inspect the node and unhold them manually.
+      vars:
+        failed_unholds: >-
+          {{ (unhold_results.results
+              | selectattr('rc', 'ne', 0)
+              | map(attribute='item')
+              | list) if (unhold_results is defined) else [] }}
+      when: unhold_results is defined and
+            (unhold_results.results | selectattr('rc', 'ne', 0) | list | length) > 0
+
+    - name: Check dpkg audit for broken packages
+      command: dpkg -C
+      register: dpkg_audit
+      changed_when: false
+
+    - name: Repair dpkg/apt state if dpkg audit reports problems
+      command: /bin/bash -lc "apt-get -f install -y && dpkg --configure -a"
+      when: dpkg_audit.stdout != ""
+      register: dpkg_repair
+      changed_when: "'installed' in dpkg_repair.stdout or dpkg_repair.rc == 0"
+
+    - name: Purge known conflicting Docker Inc and plugin packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-ce-rootless-extras
+          - docker-compose-plugin
+          - docker-buildx-plugin
+          - docker-buildx
+        state: absent
+        purge: true
+        autoremove: true
+        update_cache: true
 
     - name: Ensure base packages are installed
       apt:
@@ -24,35 +112,20 @@
         state: present
         update_cache: true
 
-    - name: Install Docker dependencies
+    - name: Ensure apt cache is fresh after removals
+      apt:
+        update_cache: true
+        cache_valid_time: 0
+
+    - name: Install Docker from Ubuntu repository (docker.io stack)
       apt:
         name:
-          - ca-certificates
-          - curl
-          - gnupg
+          - docker.io
+          - docker-compose-v2
+          - docker-buildx
         state: present
         update_cache: true
-
-    - name: Add Docker GPG key
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
-
-    - name: Add Docker repository
-      apt_repository:
-        repo: >-
-          deb [arch=amd64] https://download.docker.com/linux/ubuntu
-          {{ ansible_distribution_release }} stable
-        state: present
-
-    - name: Install Docker Engine
-      apt:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-        state: present
-        update_cache: true
+      notify: Restart docker
 
     - name: Ensure Docker service is enabled and running
       systemd:
@@ -66,36 +139,122 @@
         groups: docker
         append: true
 
-    - name: Install kubectl
+    - name: Ensure /usr/local/bin exists
+      file:
+        path: /usr/local/bin
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Check if kubectl exists
+      stat:
+        path: /usr/local/bin/kubectl
+      register: kubectl_stat
+      changed_when: false
+
+    - name: Download kubectl binary
       get_url:
-        url: >-
-          https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl
+        url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
         dest: /usr/local/bin/kubectl
         mode: '0755'
-      args:
-        creates: /usr/local/bin/kubectl
+        owner: root
+        group: root
+        force: false
+      when: not kubectl_stat.stat.exists
 
-    - name: Install k3d
+    - name: Check if k3d exists
+      stat:
+        path: /usr/local/bin/k3d
+      register: k3d_stat
+      changed_when: false
+
+    - name: Download k3d binary
       get_url:
-        url: >-
-          https://github.com/k3d-io/k3d/releases/download/{{ k3d_version }}/
-          k3d-linux-amd64
+        url: "https://github.com/k3d-io/k3d/releases/download/{{ k3d_version }}/k3d-linux-amd64"
         dest: /usr/local/bin/k3d
         mode: '0755'
-      args:
-        creates: /usr/local/bin/k3d
+        owner: root
+        group: root
+        force: false
+      when: not k3d_stat.stat.exists
 
-    - name: Install Helm
-      shell: |
-        curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+    - name: Check if argocd exists
+      stat:
+        path: /usr/local/bin/argocd
+      register: argocd_stat
+      changed_when: false
+
+    - name: Download Argo CD CLI binary
+      get_url:
+        url: "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64"
+        dest: /usr/local/bin/argocd
+        mode: '0755'
+        owner: root
+        group: root
+        force: false
+      when: not argocd_stat.stat.exists
+
+    - name: Verify kubectl (try JSON output then fallback)
+      when: kubectl_stat.stat.exists
+      block:
+        - name: Run kubectl version --client --output=json
+          command: /usr/local/bin/kubectl version --client --output=json
+          register: kubectl_verify_json
+          changed_when: false
+          failed_when: false
+
+        - name: Run kubectl version --client (fallback)
+          command: /usr/local/bin/kubectl version --client
+          register: kubectl_verify_plain
+          changed_when: false
+          failed_when: false
+          when: kubectl_verify_json.rc != 0
+
+        - name: Fail if kubectl verification failed
+          fail:
+            msg: >-
+              kubectl verification failed. JSON rc={{ kubectl_verify_json.rc }},
+              plain rc={{ kubectl_verify_plain.rc | default('N/A') }}.
+              json_out={{ kubectl_verify_json.stdout | default('') }},
+              plain_out={{ kubectl_verify_plain.stdout | default('') }}.
+          when: kubectl_verify_json.rc != 0 and
+                (kubectl_verify_plain is not defined or kubectl_verify_plain.rc != 0)
+      rescue:
+        - name: Debug kubectl verify outputs on rescue
+          debug:
+            msg: >-
+              kubectl json rc={{ kubectl_verify_json.rc | default('undef') }},
+              stdout={{ kubectl_verify_json.stdout | default('') }},
+              stderr={{ kubectl_verify_json.stderr | default('') }};
+              kubectl plain rc={{ kubectl_verify_plain.rc | default('undef') }},
+              stdout={{ kubectl_verify_plain.stdout | default('') }},
+              stderr={{ kubectl_verify_plain.stderr | default('') }}.
+
+    - name: Verify k3d is executable
+      command: /usr/local/bin/k3d version
+      register: k3d_ver
+      changed_when: false
+      failed_when: k3d_ver.rc != 0
+      when: k3d_stat.stat.exists
+
+    - name: Verify argocd is executable
+      command: /usr/local/bin/argocd version --client
+      register: argocd_ver
+      changed_when: false
+      failed_when: argocd_ver.rc != 0
+      when: argocd_stat.stat.exists
+
+    - name: Install Helm (idempotent via creates)
+      shell: curl -fsSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
       args:
         creates: /usr/local/bin/helm
 
     - name: Install Terraform
       unarchive:
         src: >-
-          https://releases.hashicorp.com/terraform/{{ terraform_version }}/
-          terraform_{{ terraform_version }}_linux_amd64.zip
+          {{ 'https://releases.hashicorp.com/terraform/' ~ terraform_version
+            ~ '/terraform_' ~ terraform_version ~ '_linux_amd64.zip' }}
         dest: /usr/local/bin
         remote_src: true
       args:
@@ -105,78 +264,76 @@
       pip:
         name: localstack
         executable: pip3
-      become: true
 
     - name: Install AWS CLI v2
-      shell: |
-        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-        unzip -o /tmp/awscliv2.zip -d /tmp
+      shell: >
+        curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip &&
+        unzip -o /tmp/awscliv2.zip -d /tmp &&
         /tmp/aws/install
       args:
         creates: /usr/local/bin/aws
 
-    - name: Install Argo CD CLI
-      get_url:
-        url: >-
-          https://github.com/argoproj/argo-cd/releases/latest/download/
-          argocd-linux-amd64
-        dest: /usr/local/bin/argocd
-        mode: '0755'
-      args:
-        creates: /usr/local/bin/argocd
+    - name: Add Trivy APT key
+      apt_key:
+        url: https://get.trivy.dev/deb/public.key
+        state: present
 
-    - name: Download Trivy package
-      get_url:
-        url: >-
-          https://github.com/aquasecurity/trivy/releases/download/v{{ trivy_version }}/
-          trivy_{{ trivy_version }}_Linux-64bit.deb
-        dest: /tmp/trivy.deb
-        mode: '0644'
-      register: trivy_pkg
+    - name: Add Trivy APT repository
+      apt_repository:
+        repo: "deb https://get.trivy.dev/deb generic main"
+        filename: trivy
+        state: present
 
-    - name: Install Trivy package
+    - name: Update apt cache for Trivy repo
       apt:
-        deb: /tmp/trivy.deb
-      when: trivy_pkg.changed
+        update_cache: true
+        cache_valid_time: 3600
 
-    - name: Ensure Trivy binary is executable
-      file:
-        path: "{{ item }}"
-        mode: '0755'
-      loop:
-        - /usr/local/bin/trivy
-        - /usr/bin/trivy
-      register: trivy_exec_result
-      failed_when:
-        - trivy_exec_result is defined
-        - (trivy_exec_result.results
-           | selectattr('failed')
-           | list
-           | length) > 0
+    - name: Install Trivy from APT repository
+      apt:
+        name: trivy
+        state: present
+
+    - name: Verify Trivy is installed
+      command: trivy --version
+      register: trivy_verify
+      changed_when: false
+      failed_when: trivy_verify.rc != 0
 
     - name: Install Checkov
       pip:
         name: checkov
         executable: pip3
-      become: true
 
-    # ---------------------------------------------------------
-    # Verification Block
-    # ---------------------------------------------------------
+    - name: Verify installed tools (looped checks)
+      vars:
+        verify_cmds:
+          - name: kubectl
+            cmd: /usr/local/bin/kubectl version --client --output=json || /usr/local/bin/kubectl version --client
+          - name: k3d
+            cmd: /usr/local/bin/k3d version
+          - name: terraform
+            cmd: terraform -version
+          - name: trivy
+            cmd: trivy --version
+          - name: argocd
+            cmd: /usr/local/bin/argocd version --client
+          - name: checkov
+            cmd: checkov --version
+      when: verify_cmds is defined
+      block:
+        - name: Run verification commands
+          command: "{{ item.cmd }}"
+          loop: "{{ verify_cmds }}"
+          register: verify_results
+          changed_when: false
 
-    - name: Verify installed tools
-      command: "{{ item }} --version"
-      loop:
-        - kubectl
-        - k3d
-        - terraform
-        - trivy
-        - argocd
-        - checkov
-      register: verify_output
-      changed_when: false
-      failed_when: verify_output.rc != 0
+    - name: Fail if any verification command failed
+      fail:
+        msg: >-
+          One or more verification commands failed. See verify_results for details.
+      when: (verify_results.results | selectattr('rc', 'ne', 0) | list | length) > 0
 
     - name: Display verification results
       debug:
-        var: verify_output.stdout_lines
+        var: verify_results.results
