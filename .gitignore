@@ -1,0 +1,5 @@
+ignoreme/*
+
+# Ansible runtime caches
+.ansible/
+**/.ansible/

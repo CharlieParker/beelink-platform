@@ -1,0 +1,157 @@
+---
+- name: Bootstrap BeeLink DevOps Platform Node
+  hosts: beelink
+  become: true
+
+  vars:
+    terraform_version: "1.8.5"
+    kubectl_version: "v1.30.0"
+    k3d_version: "v5.6.0"
+    trivy_version: "0.50.2"
+
+  tasks:
+
+    - name: Ensure base packages are installed
+      apt:
+        name:
+          - curl
+          - unzip
+          - jq
+          - git
+          - python3
+          - python3-pip
+          - python3-venv
+        state: present
+        update_cache: true
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Ensure Docker service is enabled and running
+      systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Add ansible user to docker group
+      user:
+        name: ansible
+        groups: docker
+        append: true
+
+    - name: Install kubectl
+      get_url:
+        url: >-
+          https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl
+        dest: /usr/local/bin/kubectl
+        mode: '0755'
+      args:
+        creates: /usr/local/bin/kubectl
+
+    - name: Install k3d
+      get_url:
+        url: >-
+          https://github.com/k3d-io/k3d/releases/download/{{ k3d_version }}/
+          k3d-linux-amd64
+        dest: /usr/local/bin/k3d
+        mode: '0755'
+      args:
+        creates: /usr/local/bin/k3d
+
+    - name: Install Helm
+      shell: |
+        curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+      args:
+        creates: /usr/local/bin/helm
+
+    - name: Install Terraform
+      unarchive:
+        src: >-
+          https://releases.hashicorp.com/terraform/{{ terraform_version }}/
+          terraform_{{ terraform_version }}_linux_amd64.zip
+        dest: /usr/local/bin
+        remote_src: true
+      args:
+        creates: /usr/local/bin/terraform
+
+    - name: Install LocalStack via pip
+      pip:
+        name: localstack
+        executable: pip3
+      become: true
+
+    - name: Install AWS CLI v2
+      shell: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -o /tmp/awscliv2.zip -d /tmp
+        /tmp/aws/install
+      args:
+        creates: /usr/local/bin/aws
+
+    - name: Install Argo CD CLI
+      get_url:
+        url: >-
+          https://github.com/argoproj/argo-cd/releases/latest/download/
+          argocd-linux-amd64
+        dest: /usr/local/bin/argocd
+        mode: '0755'
+      args:
+        creates: /usr/local/bin/argocd
+
+    - name: Download Trivy package
+      get_url:
+        url: >-
+          https://github.com/aquasecurity/trivy/releases/download/v{{ trivy_version }}/
+          trivy_{{ trivy_version }}_Linux-64bit.deb
+        dest: /tmp/trivy.deb
+        mode: '0644'
+      register: trivy_pkg
+
+    - name: Install Trivy package
+      apt:
+        deb: /tmp/trivy.deb
+      when: trivy_pkg.changed
+
+    - name: Ensure Trivy binary is executable
+      file:
+        path: "{{ item }}"
+        mode: '0755'
+      loop:
+        - /usr/local/bin/trivy
+        - /usr/bin/trivy
+      register: trivy_exec_result
+      failed_when:
+        - trivy_exec_result is defined
+        - (trivy_exec_result.results
+           | selectattr('failed')
+           | list
+           | length) > 0
+
+    - name: Install Checkov
+      pip:
+        name: checkov
+        executable: pip3
+      become: true
+
+    # ---------------------------------------------------------
+    # Verification Block
+    # ---------------------------------------------------------
+
+    - name: Verify installed tools
+      command: "{{ item }} --version"
+      loop:
+        - kubectl
+        - k3d
+        - terraform
+        - trivy
+        - argocd
+        - checkov
+      register: verify_output
+      changed_when: false
+      failed_when: verify_output.rc != 0
+
+    - name: Display verification results
+      debug:
+        var: verify_output.stdout_lines

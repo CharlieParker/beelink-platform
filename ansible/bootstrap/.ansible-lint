@@ -1,0 +1,9 @@
+profile: production
+
+skip_list:
+  - fqcn-builtins
+  - no-handler
+  - package-latest
+  - package-update
+  - risky-shell-pipe
+  - command-instead-of-module
