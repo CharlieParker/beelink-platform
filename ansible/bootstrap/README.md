@@ -1,54 +1,64 @@
 # Bootstrap Playbook
 
-This directory contains the bootstrap playbook used to prepare a fresh BeeLink
-DevOps Platform node with the core CLI tools required for development and local
+This directory contains a single Ansible playbook that bootstraps a fresh BeeLink
+DevOps Platform node with the core CLI tools needed for local development and
 cluster provisioning.
 
-The playbook installs:
+It installs:
 
-- Docker Engine
+- Docker
 - kubectl, k3d, Helm
 - Terraform
-- AWS CLI v2
-- LocalStack
+- AWS CLI v2 and LocalStack
 - Argo CD CLI
 - Trivy and Checkov
 - Supporting system packages
 
-It is idempotent and safe to re-run.
+The playbook is **idempotent** and safe to re-run on a clean Ubuntu system.
 
 ---
 
-## Relaxed linting rules
+## Why this playbook exists
 
-This playbook uses a local `.ansible-lint` configuration with **more relaxed
-rules** than the rest of the repository.
+This bootstrap is intentionally **pragmatic and self‑contained**. It installs
+tools directly from upstream sources and uses simple, reliable steps to bring a
+machine to a ready‑to‑use state quickly.
 
-Reason: bootstrap tasks are intentionally **pragmatic and imperative**. They may:
+A more maintainable long‑term approach would be to replace many of these manual
+install steps with existing **Ansible roles and collections**, which already
+provide well‑tested installers for tools like Docker, Helm, Terraform, Trivy,
+and Checkov.
 
-- use shell installers where no module exists  
-- download binaries directly  
-- run one-off setup commands  
-- prioritise reliability over strict style rules  
-
-The relaxed linting applies **only** to this directory.
+This playbook remains a solid baseline until that refactor happens.
 
 ---
 
-## When to use this playbook
+## Linting
+
+This directory uses a relaxed `.ansible-lint` configuration because bootstrap
+tasks often require:
+
+- direct binary downloads  
+- shell installers  
+- imperative setup steps  
+
+The relaxed rules apply **only** here.
+
+---
+
+## When to use
 
 Run this playbook when:
 
 - provisioning a new BeeLink development node  
-- rebuilding a machine after OS reinstall  
-- ensuring all core tooling is installed and working  
+- rebuilding after an OS reinstall  
+- ensuring all core tooling is present and working  
 
-It does not configure applications or deploy workloads.
+It does **not** deploy applications or configure clusters.
 
 ---
 
 ## Verification
 
-At the end of the run, the playbook verifies each installed tool by running its
-`--version` command. This provides a quick confirmation that the environment is
-ready for use.
+At the end of the run, each installed tool is checked using its `--version`
+command to confirm the environment is ready for use.
