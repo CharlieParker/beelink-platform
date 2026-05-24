@@ -8,5 +8,5 @@ The bootstrap installs core tooling (Docker, kubectl, k3d, Terraform, Trivy, Che
 
 Update `inventory/hosts.ini` with your BeeLink’s host and user, then run:
 ```bash
-ansible-playbook -i inventory/hosts.ini ansible/bootstrap/bootstrap.yml
+ansible-playbook -i inventory/hosts.ini ansible/bootstrap/bootstrap.yml -K
 ```
