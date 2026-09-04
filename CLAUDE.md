@@ -87,18 +87,57 @@ only the non-obvious parts) or "off" at any time. If he does, update this line.
 
 ## Current state
 
-**Rung 0 — Make the lab trustworthy: in progress.**
-Recon commands issued; patching not yet done. See `docs/digi2al-dna-prep.md` §11 for the
-full ladder.
+**Rung 0 — Make the lab trustworthy: recon complete, execution not started.**
+See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 
-- The Beelink (`192.168.1.130`, Ubuntu 22.04.5, user `ansible`) has been bootstrapped once
-  and left untouched since May 2026. It needs patching. It is on **Wi-Fi** (`wlp3s0`), and
-  disk was at 51% of 98 GB.
-- `ansible/bootstrap/bootstrap.yml` runs successfully but is a single monolithic play with
-  a lot of Docker-repo cleanup scar tissue. Refactoring it into roles is Rung 1.
-- Nothing has been deployed to a cluster yet. No CI. No application.
+### The Beelink, as surveyed 2026-09-04
+
+| | |
+|---|---|
+| Host / access | `beelink` at `192.168.1.130`, SSH as `ansible` |
+| CPU / RAM | AMD Ryzen 7 3750H, 8 threads, **13 GiB RAM**, 4 GiB swap |
+| Disk | 477 GB NVMe. Root LV is **100 GB of a 474 GB volume group — 374 GB unallocated** |
+| Disk in use | 51 GB, almost all `/usr` (26 GB) and `/opt` (21 GB). Probably leftover AI workloads; not yet identified |
+| Network | Wi-Fi on `wlp3s0`. `eno1` exists but is unplugged, and the router has no spare ports. Address is DHCP, not reserved |
+| OS | Ubuntu 22.04.5, kernel 5.15.0-181-generic. `unattended-upgrades` enabled, but the box is often powered off so patches lag |
+| Cluster state | **None.** No k3d cluster has ever been built. Only a `hello-world` image. Stale `ai-net` Docker bridge left over |
+
+### Open problems
+
+1. **k3d is broken.** Docker 29.1.3 requires API ≥ 1.44; k3d v5.6.0 speaks 1.43, so it cannot
+   talk to the daemon. Latest k3d is v5.9.0. Nothing k3d-based works until this is bumped.
+2. **All the version pins have rotted**, not just k3d: `kubectl_version: v1.30.0`,
+   `terraform_version: 1.8.5`, `trivy_version: 0.50.2`, and k3d v5.6.0 still defaults to k3s
+   v1.27.4 (out of support). Pinning is correct; *not servicing the pins* is the defect.
+   Worth designing a lightweight refresh process as part of Rung 1.
+3. **374 GB of unallocated LVM space** waiting on `lvextend` + `resize2fs`. Plan is to add
+   300 GB and leave ~74 GB free for LVM snapshots.
+4. **Credential hygiene.** The `ansible` account's password was lost and reset via a second
+   account, `cp`, which has `(ALL) NOPASSWD: ALL` — unrestricted passwordless root. Fine for
+   a lab, exactly what a Secure by Design review would flag. Flagged as the first ADR topic:
+   should the automation account get NOPASSWD sudo, and what compensates for it?
+
+### Rung 0 checklist
+
+- [ ] Identify what is in `/opt` and `/usr` (`sudo du -xh --max-depth=1 /opt /usr | sort -h`)
+- [ ] `lvextend -L +300G` then `resize2fs`; verify with `df -h /`
+- [ ] `sudo apt update && sudo apt full-upgrade -y`; reboot if `/var/run/reboot-required` exists
+- [ ] DHCP reservation for `192.168.1.130` on the router (`hosts.ini` hard-codes it)
+- [ ] Remove the stale `ai-net` Docker network
+- [ ] Bump the pins in `bootstrap.yml` (k3d v5.9.0 first) and re-run to confirm it still works
+- [ ] Add Charlie's SSH public key to the `ansible` account
+
+Then Rung 1: refactor `bootstrap.yml` into roles with Molecule tests, and write ADR-0001 on
+the NOPASSWD question.
 
 *Keep this section current — it is the fastest way for a new session to pick up the thread.*
+
+## Model choice
+
+Routine work in this repo — running through the rungs, explaining commands, editing the
+playbook — is well served by **Sonnet at medium effort**, and it uses the usage window far
+more slowly. Reach for **Opus** when the task is open-ended research, synthesis into a
+document, or debugging that has already resisted two or three attempts.
 
 ## Navigation
 
