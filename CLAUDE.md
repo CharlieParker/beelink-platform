@@ -87,7 +87,7 @@ only the non-obvious parts) or "off" at any time. If he does, update this line.
 
 ## Current state
 
-**Rung 0 — Make the lab trustworthy: recon complete, execution not started.**
+**Rung 0 — Make the lab trustworthy: recon complete, execution underway (2 of 7 checklist items done).**
 See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 
 ### The Beelink, as surveyed 2026-09-04
@@ -96,8 +96,8 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 |---|---|
 | Host / access | `beelink` at `192.168.1.130`, SSH as `ansible` |
 | CPU / RAM | AMD Ryzen 7 3750H, 8 threads, **13 GiB RAM**, 4 GiB swap |
-| Disk | 477 GB NVMe. Root LV is **100 GB of a 474 GB volume group — 374 GB unallocated** |
-| Disk in use | 51 GB, almost all `/usr` (26 GB) and `/opt` (21 GB). Probably leftover AI workloads; not yet identified |
+| Disk | 477 GB NVMe. Root LV extended to **200 GB of a 474 GB volume group — 274 GB unallocated** |
+| Disk in use | 30 GB. `/opt/ollama` (20 GB) and `/opt/open-webui` (889 MB) confirmed as old local-LLM experiments and removed 2026-09-04 |
 | Network | Wi-Fi on `wlp3s0`. `eno1` exists but is unplugged, and the router has no spare ports. Address is DHCP, not reserved |
 | OS | Ubuntu 22.04.5, kernel 5.15.0-181-generic. `unattended-upgrades` enabled, but the box is often powered off so patches lag |
 | Cluster state | **None.** No k3d cluster has ever been built. Only a `hello-world` image. Stale `ai-net` Docker bridge left over |
@@ -110,8 +110,11 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
    `terraform_version: 1.8.5`, `trivy_version: 0.50.2`, and k3d v5.6.0 still defaults to k3s
    v1.27.4 (out of support). Pinning is correct; *not servicing the pins* is the defect.
    Worth designing a lightweight refresh process as part of Rung 1.
-3. **374 GB of unallocated LVM space** waiting on `lvextend` + `resize2fs`. Plan is to add
-   300 GB and leave ~74 GB free for LVM snapshots.
+3. ~~374 GB of unallocated LVM space waiting on `lvextend` + `resize2fs`.~~ **Resolved
+   2026-09-04**: extended the root LV by `+100G` (100G → 200G) after clearing the old AI
+   workload data, rather than the originally-planned `+300G` — kept ~274 GB unallocated in
+   the VG for LVM snapshots and future flexibility. Growing an LV live is cheap and safe, so
+   there's little cost to extending again later against real evidence of need.
 4. **Credential hygiene.** The `ansible` account's password was lost and reset via a second
    account, `cp`, which has `(ALL) NOPASSWD: ALL` — unrestricted passwordless root. Fine for
    a lab, exactly what a Secure by Design review would flag. Flagged as the first ADR topic:
@@ -119,8 +122,11 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 
 ### Rung 0 checklist
 
-- [ ] Identify what is in `/opt` and `/usr` (`sudo du -xh --max-depth=1 /opt /usr | sort -h`)
-- [ ] `lvextend -L +300G` then `resize2fs`; verify with `df -h /`
+- [x] Identify what is in `/opt` and `/usr` — 20 GB `/opt/ollama` + 889 MB
+  `/opt/open-webui`, old local-LLM experiments; service confirmed disabled and no running
+  containers, then removed
+- [x] Extend the root LV — `lvextend -L +100G` (not the originally-planned `+300G`) then
+  `resize2fs`; confirmed with `df -h /`: 197G total, 30G used, 158G available
 - [ ] `sudo apt update && sudo apt full-upgrade -y`; reboot if `/var/run/reboot-required` exists
 - [ ] DHCP reservation for `192.168.1.130` on the router (`hosts.ini` hard-codes it)
 - [ ] Remove the stale `ai-net` Docker network

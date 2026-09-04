@@ -6,6 +6,33 @@ Format: **date — what was done · what broke · what was learned · next**
 
 ---
 
+## 2026-09-04 (late evening) — Rung 0: AI-workload cleanup + LV extend
+
+- **Done:** Confirmed `/opt/ollama` (20 GB) and `/opt/open-webui` (889 MB) were dead
+  local-LLM experiments — `ollama.service` was disabled/inactive, `docker ps -a` showed no
+  containers at all — and removed both directories. Extended the root LV by `+100G`
+  (100G → 200G, not the originally-planned `+300G`) via `lvextend` then `resize2fs`; `/` now
+  sits at 197G total, 30G used, 158G available, with ~274 GB left unallocated in the VG.
+- **Broke:** Nothing.
+- **Learned:**
+  - `du`'s `-x`/`--one-file-system` and `df`'s `-x`/`--exclude-type` share a letter but mean
+    different things entirely — always check the man page for the specific binary, not a
+    neighbouring one.
+  - LVM snapshots are point-in-time *views* but variable-cost storage: copy-on-write means a
+    snapshot's size grows only as blocks change on the origin after it was taken, not at
+    creation time.
+  - `vgs`/`pvs` report LVM-level free space (unallocated extents in the volume group); `df`
+    reports filesystem-level free space. Two different layers, two different meanings of
+    "free."
+  - An LV is measured in extents (4 MiB units here) — `lvextend` just reassigns free extents
+    from the volume group to the LV; growing live is cheap and safe, shrinking is not.
+  - Chose a smaller `+100G` extend over the original `+300G` plan, now that 21 GB of the
+    "used" figure turned out to be disposable — preferring to extend again later with
+    evidence over guessing big upfront.
+- **Next:** Remaining Rung 0 checklist — `apt full-upgrade` (reboot if required), DHCP
+  reservation for `192.168.1.130`, remove the stale `ai-net` Docker network, bump the version
+  pins in `bootstrap.yml` (k3d v5.9.0 first), add Charlie's SSH key to the `ansible` account.
+
 ## 2026-09-04 (evening) — Rung 0 recon
 
 - **Done:** Wrote `CLAUDE.md` and project instructions. Removed `docs/` from `.gitignore` and
