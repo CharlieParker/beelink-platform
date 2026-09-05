@@ -7,6 +7,7 @@
     terraform_version: "1.16.1"
     kubectl_version: "v1.37.0"
     k3d_version: "v5.9.0"
+    argocd_version: "v3.5.2"
     # trivy: intentionally NOT version-pinned here. It's installed via its own apt
     # repo (see the Trivy install tasks below), and a scanner benefits from tracking
     # latest signatures/checks rather than a stale pin. Decision recorded 2026-09-05.
@@ -187,7 +188,7 @@
 
     - name: Download Argo CD CLI binary
       get_url:
-        url: "https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64"
+        url: "https://github.com/argoproj/argo-cd/releases/{{ argocd_version }}/download/argocd-linux-amd64"
         dest: /usr/local/bin/argocd
         mode: '0755'
         owner: root
