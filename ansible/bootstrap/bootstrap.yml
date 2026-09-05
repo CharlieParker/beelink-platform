@@ -326,6 +326,23 @@
           register: verify_results
           changed_when: false
 
+    - name: Check for pending package upgrades
+      command: apt list --upgradable
+      register: pending_upgrades
+      changed_when: false
+
+    - name: Check whether a reboot is required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required_stat
+      changed_when: false
+
+    - name: Report patch status
+      debug:
+        msg: >-
+          {{ (pending_upgrades.stdout_lines | length) - 1 }} package(s) upgradable.
+          Reboot required: {{ reboot_required_stat.stat.exists }}
+
     - name: Fail if any verification command failed
       fail:
         msg: >-
