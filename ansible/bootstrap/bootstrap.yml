@@ -177,8 +177,7 @@
         mode: '0755'
         owner: root
         group: root
-        force: false
-      when: not k3d_stat.stat.exists
+        force: true
 
     - name: Check if argocd exists
       stat:
