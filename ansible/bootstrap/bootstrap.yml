@@ -192,8 +192,7 @@
         mode: '0755'
         owner: root
         group: root
-        force: false
-      when: not argocd_stat.stat.exists
+        force: true
 
     - name: Verify kubectl (try JSON output then fallback)
       when: kubectl_stat.stat.exists
