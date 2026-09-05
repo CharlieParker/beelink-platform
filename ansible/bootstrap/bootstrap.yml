@@ -188,7 +188,7 @@
 
     - name: Download Argo CD CLI binary
       get_url:
-        url: "https://github.com/argoproj/argo-cd/releases/{{ argocd_version }}/download/argocd-linux-amd64"
+        url: "https://github.com/argoproj/argo-cd/releases/download/{{ argocd_version }}/argocd-linux-amd64"
         dest: /usr/local/bin/argocd
         mode: '0755'
         owner: root
