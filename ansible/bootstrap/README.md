@@ -20,19 +20,51 @@ The playbook is **idempotent** and safe to re-run on a clean Ubuntu system.
 
 ## Why this playbook exists
 
-This bootstrap was originally one monolithic play. It's being refactored
-in place into roles (Rung 1, started 2026-09-05): `roles/common` (generic host
-prerequisites), `roles/docker` (Docker install and the apt-repo/dpkg cleanup
-it historically needed), `roles/k8s_tools` (kubectl, k3d, Argo CD CLI) and
-`roles/cli_tools` (Helm, AWS CLI v2) have landed so far. Terraform, LocalStack,
-Trivy, Checkov, verification and patch-status reporting are still plain tasks
-in `bootstrap.yml`, moving into their own roles (`hashicorp`, `security_tools`,
-`updates`) incrementally.
+This bootstrap was originally one monolithic play. Refactored into roles
+2026-09-05 (Rung 1): `roles/common` (generic host prerequisites), `roles/docker`
+(Docker install and the apt-repo/dpkg cleanup it historically needed),
+`roles/k8s_tools` (kubectl, k3d, Argo CD CLI), `roles/cli_tools` (Helm, AWS
+CLI v2), `roles/hashicorp` (Terraform, LocalStack), `roles/security_tools`
+(Trivy, Checkov) and `roles/updates` (patch status, Ubuntu Pro/ESM state,
+plus opt-in pinned-tool freshness and support/EOL reporting — see below).
+Only the final cross-cutting verification loop stays as a plain task in
+`bootstrap.yml`, since it checks everything every role installed rather than
+belonging to any one of them.
 
-Helm and AWS CLI v2 were also fixed to be properly version-pinned as part of
-this pass — both previously always installed "whatever's currently latest"
-with no way to pin or verify a specific version, the same bug already found
-and fixed in kubectl/k3d/Terraform/Argo CD.
+Helm, AWS CLI v2, LocalStack and Checkov were all fixed to be properly
+version-pinned as part of this pass — all four previously always installed
+"whatever's currently latest" with no way to pin or verify a specific
+version, the same bug already found and fixed in kubectl/k3d/Terraform/Argo
+CD. Trivy remains deliberately unpinned (tracks its own apt repo).
+
+## Running this playbook
+
+`ansible.cfg` lives at the repo root (`beelink-platform/ansible.cfg`) and
+supplies the inventory path and output formatting, so run from there with no
+`-i` flag needed:
+
+```
+ansible-playbook ansible/bootstrap/bootstrap.yml -K
+```
+
+(Moved here 2026-09-05 — it previously sat in `ansible/`, one level away
+from both the inventory it points to and the repo root everything else is
+run from, so it was silently never being picked up.)
+
+## Checking for stale pins
+
+`roles/updates` can report whether any pinned tool has a newer release
+available, and what each pin's support/EOL window looks like, by querying
+GitHub/PyPI/HashiCorp/`endoflife.date`. This is opt-in — a plain run never
+makes these calls, since a restricted network may not permit them at all:
+
+```
+ansible-playbook ansible/bootstrap/bootstrap.yml -K --tags version_check
+```
+
+Note `--tags version_check` on its own only runs *tagged* tasks, skipping
+the rest of the play — fine for just checking freshness, but not a normal
+provisioning run.
 
 Considered and rejected: pulling in existing Galaxy roles/collections (e.g.
 `geerlingguy.docker`) instead of hand-rolling `roles/docker`. That role's

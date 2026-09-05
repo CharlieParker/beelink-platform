@@ -144,3 +144,44 @@ Format: **date — what was done · what broke · what was learned · next**
   scope most `bootstrap.yml` tasks; only `shell:`/`command:` tasks against fixed binaries are
   actually scopable that way.
 - **Next:** Rung 1's main piece — refactor `bootstrap.yml` into roles with Molecule tests.
+
+## 2026-09-05 (evening) — Rung 1 roles refactor + pinning complete
+
+- **Done:** Finished refactoring `bootstrap.yml` into roles (`common`, `docker`,
+  `k8s_tools`, `cli_tools`, `hashicorp`, `security_tools`, `updates`) — every task
+  relocated, name-for-name diffed against the original file each step to catch
+  losses (caught and fixed one: a mid-edit slip briefly deleted the Terraform and
+  LocalStack tasks entirely). Fixed the Helm/LocalStack/AWS CLI v2/Checkov pinning
+  gap flagged last session, same check-then-reinstall pattern as kubectl/k3d/
+  Terraform/Argo CD. Deliberately hand-rolled `roles/docker` rather than pulling in
+  `geerlingguy.docker` — that role's value is setting up Docker Inc's own apt repo,
+  the opposite of this playbook's deliberate `docker.io` choice. Pinned Helm to the
+  latest 3.x (`v3.21.4`), not 4 (released Nov 2025) — real teams are still on 3;
+  its security-fix window closes 2026-11-11, revisit then. Added `roles/updates`:
+  read-only patch status, Ubuntu Pro/ESM state (schema happened to match my
+  best-guess exactly), and opt-in (`--tags version_check`) pinned-tool freshness +
+  support/EOL reporting via GitHub/PyPI/HashiCorp/`endoflife.date` APIs — genuinely
+  new capability, not just a refactor. Wrote ADR-0001 (ansible sudo model — decision:
+  leave unchanged, command-scoping doesn't work cleanly against Ansible's module
+  execution model, vaulted `become_pass` just relocates the secret) as a worked
+  example; ADR-0002 onward are Charlie's to write. Relocated `ansible.cfg` to the
+  repo root — it was one level away from the inventory and repo root everyone
+  actually works from, so `stdout_callback = yaml` was silently inert. Final full
+  run: `ok=55 changed=1 failed=0`.
+- **Broke:** LocalStack 2026.5.0's own CLI doesn't run on this box's Python 3.10 —
+  a genuine upstream `SyntaxError` (nested-quote f-string, valid only from 3.12).
+  Not our bug, but a real blocker for Rung 6's actual LocalStack exercises — logged
+  as Open Problem #5 in `CLAUDE.md`, worth a GitHub issue upstream at some point.
+  Worked around it here by checking `pip3 show localstack` instead of the CLI.
+- **Learned:** Ansible only auto-discovers `ansible.cfg` in the exact CWD, never a
+  parent/child directory. Ansible modules (as opposed to `shell:`/`command:` tasks)
+  execute as a generated Python script, not a literal shell command — so sudoers
+  command-scoping can't meaningfully restrict them. `get_url`'s `force: true` still
+  does content-based idempotency (compares the fetched bytes, only reports
+  `changed` if they actually differ) — it isn't a blunt "always redownload and
+  overwrite" flag. Ansible's default stdout callback prints embedded `\n` in a
+  `debug` message as literal text, not a line break — only the `yaml` callback (or
+  restructuring to one `debug` per loop item) renders it as real lines.
+- **Next:** Molecule tests (proposal first — driver choice, what's actually being
+  tested), then the PR/CI flow (branch protection, ansible-lint/yamllint in GitHub
+  Actions). After that, Rung 2: the Java/React/Postgres vertical slice.

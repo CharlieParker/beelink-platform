@@ -2,14 +2,10 @@
 # Helm and AWS CLI v2 — the two tools flagged 2026-09-05 as having the same
 # install-once-then-freeze shape as the original kubectl/k3d/Argo CD bug
 # (curl|bash or an unversioned URL, gated only by `creates:`, so editing a
-# version var did nothing). Fixed the same way: fetch the exact pinned
-# release every run, verify the installed version actually matches it.
-
-- name: Ensure a scratch directory for archive downloads exists
-  file:
-    path: /opt/download-cache
-    state: directory
-    mode: '0755'
+# version var did nothing). Fixed the same way: check the installed version
+# against the pin first, only fetch+reinstall when it doesn't already match
+# — both to get real idempotency (accurate `changed` reporting) and to avoid
+# an unnecessary network call on every single run.
 
 # --- Helm ---
 # Deliberately NOT the `curl https://get-helm-3 | bash` installer script this
@@ -19,11 +15,18 @@
 # but v3 is what real teams are still overwhelmingly running today. v3's
 # security-fix window closes 2026-11-11 — revisit this pin before then.
 
+- name: Check current helm version, if installed
+  command: /usr/local/bin/helm version --short
+  register: helm_current
+  changed_when: false
+  failed_when: false
+
 - name: Download and extract Helm {{ helm_version }}
   unarchive:
     src: "https://get.helm.sh/helm-{{ helm_version }}-linux-amd64.tar.gz"
     dest: /opt/download-cache
     remote_src: true
+  when: helm_current.rc != 0 or helm_version not in helm_current.stdout
 
 - name: Install helm binary to /usr/local/bin
   copy:
@@ -33,6 +36,7 @@
     owner: root
     group: root
     remote_src: true
+  when: helm_current.rc != 0 or helm_version not in helm_current.stdout
 
 - name: Verify helm version matches the pin
   command: /usr/local/bin/helm version --short
@@ -52,26 +56,42 @@
   register: aws_stat
   changed_when: false
 
+- name: Check current AWS CLI version, if installed
+  command: aws --version
+  register: aws_current
+  changed_when: false
+  failed_when: false
+  when: aws_stat.stat.exists
+
+- name: Determine whether AWS CLI needs (re)installing
+  set_fact:
+    aws_needs_install: >-
+      {{ (not aws_stat.stat.exists) or
+         (aws_current.rc | default(1)) != 0 or
+         (aws_cli_version not in (aws_current.stdout | default(''))) }}
+
 - name: Download AWS CLI v2 installer ({{ aws_cli_version }})
   get_url:
     url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-{{ aws_cli_version }}.zip"
     dest: /opt/download-cache/awscliv2.zip
     mode: '0644'
     force: true
+  when: aws_needs_install
 
 - name: Unarchive AWS CLI v2 installer
   unarchive:
     src: /opt/download-cache/awscliv2.zip
     dest: /opt/download-cache
     remote_src: true
+  when: aws_needs_install
 
 - name: Run AWS CLI v2 installer (fresh install)
   command: /opt/download-cache/aws/install
-  when: not aws_stat.stat.exists
+  when: aws_needs_install and not aws_stat.stat.exists
 
 - name: Run AWS CLI v2 installer (update existing install)
   command: /opt/download-cache/aws/install --update
-  when: aws_stat.stat.exists
+  when: aws_needs_install and aws_stat.stat.exists
 
 - name: Verify AWS CLI version matches the pin
   command: aws --version

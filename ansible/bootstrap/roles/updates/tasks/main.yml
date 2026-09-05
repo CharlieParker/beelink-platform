@@ -1,0 +1,197 @@
+---
+# Read-only reporting only. Nothing in this role changes the host — bumping
+# a stale pin, running apt full-upgrade, or renewing Ubuntu Pro is still a
+# decision Charlie makes and a command he runs (see ADR-0001's reasoning:
+# the trust/action boundary here is a human decision, not automation).
+#
+# Two tiers:
+#  1. Patch status + Ubuntu Pro/ESM state — always runs, no external calls.
+#  2. Pinned-tool freshness + support/EOL windows — tags: [version_check],
+#     opt-in only (`--tags version_check`), because these make outbound
+#     HTTPS calls to GitHub/PyPI/HashiCorp/endoflife.date. A restricted or
+#     air-gapped network (the OFFICIAL-SENSITIVE-flavoured environments this
+#     whole project is ultimately practising for) may not permit these at
+#     all — see the reasoning recorded 2026-09-05. Every lookup here is
+#     `failed_when: false`: a lookup failing (no network, rate-limited,
+#     endpoint doesn't exist for that tool) degrades to "unknown"/"not
+#     tracked" in the report rather than failing the play.
+
+# --- Tier 1: patch status + Pro/ESM state ---
+
+- name: Check for pending package upgrades
+  command: apt list --upgradable
+  register: pending_upgrades
+  changed_when: false
+
+- name: Check whether a reboot is required
+  stat:
+    path: /var/run/reboot-required
+  register: reboot_required_stat
+  changed_when: false
+
+- name: Check Ubuntu Pro/ESM status
+  command: pro status --format json
+  register: pro_status_raw
+  changed_when: false
+  failed_when: false
+  # NOTE: field names below (services / name / status) are my best
+  # understanding of `pro`'s JSON schema, not confirmed against a real
+  # `pro status --format json` run — check the actual output the first time
+  # this runs and tell me if the esm-apps/esm-infra lines come back "unknown".
+
+- name: Report patch status
+  vars:
+    pro_status: "{{ (pro_status_raw.stdout | from_json) if (pro_status_raw.rc == 0) else {} }}"
+    esm_apps: >-
+      {{ (pro_status.services | default([]) | selectattr('name', 'equalto', 'esm-apps')
+          | map(attribute='status') | list | first | default('unknown')) }}
+    esm_infra: >-
+      {{ (pro_status.services | default([]) | selectattr('name', 'equalto', 'esm-infra')
+          | map(attribute='status') | list | first | default('unknown')) }}
+  debug:
+    msg: >-
+      {{ (pending_upgrades.stdout_lines | length) - 1 }} package(s) upgradable.
+      Reboot required: {{ reboot_required_stat.stat.exists }}.
+      Ubuntu Pro — esm-apps: {{ esm_apps }}, esm-infra: {{ esm_infra }}.
+
+# --- Tier 2a: pinned-tool freshness (opt-in) ---
+
+- name: Check latest kubectl (stable) release
+  uri:
+    url: https://cdn.dl.k8s.io/release/stable.txt
+    return_content: true
+  register: kubectl_latest_raw
+  failed_when: false
+  changed_when: false
+  tags: [version_check]
+
+- name: Check latest k3d release
+  uri:
+    url: https://api.github.com/repos/k3d-io/k3d/releases/latest
+    return_content: true
+  register: k3d_latest_raw
+  failed_when: false
+  changed_when: false
+  tags: [version_check]
+
+- name: Check latest Argo CD release
+  uri:
+    url: https://api.github.com/repos/argoproj/argo-cd/releases/latest
+    return_content: true
+  register: argocd_latest_raw
+  failed_when: false
+  changed_when: false
+  tags: [version_check]
+
+- name: Check latest Helm 3.x release (excluding Helm 4)
+  uri:
+    url: "https://api.github.com/repos/helm/helm/releases?per_page=20"
+    return_content: true
+  register: helm_latest_raw
+  failed_when: false
+  changed_when: false
+  tags: [version_check]
+
+- name: Check latest Terraform release
+  uri:
+    url: https://api.releases.hashicorp.com/v1/releases/terraform/latest
+    return_content: true
+  register: terraform_latest_raw
+  failed_when: false
+  changed_when: false
+  tags: [version_check]
+
+- name: Check latest LocalStack release
+  uri:
+    url: https://pypi.org/pypi/localstack/json
+    return_content: true
+  register: localstack_latest_raw
+  failed_when: false
+  changed_when: false
+  tags: [version_check]
+
+- name: Report pinned-tool freshness
+  vars:
+    kubectl_latest: "{{ (kubectl_latest_raw.content | trim) if (kubectl_latest_raw.status | default(0) == 200) else '' }}"
+    k3d_latest: >-
+      {{ (k3d_latest_raw.json.tag_name)
+         if (k3d_latest_raw.status | default(0) == 200 and k3d_latest_raw.json is defined) else '' }}
+    argocd_latest: >-
+      {{ (argocd_latest_raw.json.tag_name)
+         if (argocd_latest_raw.status | default(0) == 200 and argocd_latest_raw.json is defined) else '' }}
+    helm_latest: >-
+      {{ (helm_latest_raw.json | selectattr('tag_name', 'match', '^v3\.') | map(attribute='tag_name') | list | first | default(''))
+         if (helm_latest_raw.status | default(0) == 200 and helm_latest_raw.json is defined) else '' }}
+    terraform_latest: >-
+      {{ (terraform_latest_raw.json.version)
+         if (terraform_latest_raw.status | default(0) == 200 and terraform_latest_raw.json is defined) else '' }}
+    localstack_latest: >-
+      {{ (localstack_latest_raw.json.info.version)
+         if (localstack_latest_raw.status | default(0) == 200 and localstack_latest_raw.json is defined) else '' }}
+    tools:
+      - {name: "kubectl", pinned: "{{ kubectl_version }}", latest: "{{ kubectl_latest }}", checked: true}
+      - {name: "k3d", pinned: "{{ k3d_version }}", latest: "{{ k3d_latest }}", checked: true}
+      - {name: "argocd", pinned: "{{ argocd_version }}", latest: "{{ argocd_latest }}", checked: true}
+      - {name: "helm", pinned: "{{ helm_version }}", latest: "{{ helm_latest }}", checked: true}
+      - {name: "terraform", pinned: "{{ terraform_version }}", latest: "{{ terraform_latest }}", checked: true}
+      - {name: "localstack", pinned: "{{ localstack_version | default('(unpinned)') }}", latest: "{{ localstack_latest }}", checked: true}
+      - {name: "aws-cli", pinned: "{{ aws_cli_version }}", latest: "", checked: false}
+  debug:
+    msg: >-
+      {{ '%-11s' | format(item.name) }} pinned {{ '%-16s' | format(item.pinned) }}
+      latest {{ '%-16s' | format(item.latest if item.latest else 'unknown') }}
+      {{- '  up to date' if (item.latest and item.latest == item.pinned)
+          else ('  newer available' if (item.latest and item.latest != item.pinned and item.checked)
+                else ('  not checked (no simple upstream endpoint)' if not item.checked
+                      else '  lookup failed')) }}
+  loop: "{{ tools }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags: [version_check]
+
+# --- Tier 2b: support/EOL windows (opt-in, same tag) ---
+
+- name: Look up Ubuntu support/EOL data
+  uri:
+    url: https://endoflife.date/api/ubuntu.json
+    return_content: true
+  register: ubuntu_eol_raw
+  failed_when: false
+  changed_when: false
+  tags: [version_check]
+
+- name: Look up Kubernetes support/EOL data
+  uri:
+    url: https://endoflife.date/api/kubernetes.json
+    return_content: true
+  register: k8s_eol_raw
+  failed_when: false
+  changed_when: false
+  tags: [version_check]
+
+- name: Report support/EOL windows
+  vars:
+    ubuntu_cycle: "{{ ansible_distribution_version }}"
+    kubectl_cycle: "{{ kubectl_version | regex_replace('^v?(\\d+\\.\\d+).*', '\\1') }}"
+    ubuntu_entry: >-
+      {{ (ubuntu_eol_raw.json | selectattr('cycle', 'equalto', ubuntu_cycle) | list | first | default({}))
+         if (ubuntu_eol_raw.status | default(0) == 200 and ubuntu_eol_raw.json is defined) else {} }}
+    k8s_entry: >-
+      {{ (k8s_eol_raw.json | selectattr('cycle', 'equalto', kubectl_cycle) | list | first | default({}))
+         if (k8s_eol_raw.status | default(0) == 200 and k8s_eol_raw.json is defined) else {} }}
+    checks:
+      - name: "Ubuntu {{ ubuntu_cycle }}"
+        line: >-
+          {{ ('security fixes until ' ~ ubuntu_entry.eol ~ ', ESM (Pro) until ' ~ (ubuntu_entry.extendedSupport | default('unknown')))
+             if (ubuntu_entry.eol is defined) else 'not tracked on endoflife.date — check manually' }}
+      - name: "Kubernetes {{ kubectl_cycle }} (kubectl)"
+        line: >-
+          {{ ('supported until ' ~ k8s_entry.eol) if (k8s_entry.eol is defined) else 'not tracked on endoflife.date — check manually' }}
+      - name: "Terraform, Helm, k3d, Argo CD, LocalStack"
+        line: "not tracked on endoflife.date — no formal EOL cycle published; rely on Trivy/CVE scanning instead"
+  debug:
+    msg: "{{ '%-32s' | format(item.name) }} {{ item.line }}"
+  loop: "{{ checks }}"
+  loop_control:
+    label: "{{ item.name }}"
+  tags: [version_check]

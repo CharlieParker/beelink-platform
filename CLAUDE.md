@@ -101,6 +101,7 @@ only the non-obvious parts) or "off" at any time. If he does, update this line.
 ## Current state
 
 **Rung 0 — Make the lab trustworthy: complete (8 of 8 checklist items, 2026-09-05).**
+**Rung 1 — Make the existing work good: roles refactor + pinning complete 2026-09-05, Molecule and the PR/CI flow still open.** See the Rung 1 checklist below.
 See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 
 ### The Beelink, as surveyed 2026-09-04
@@ -127,12 +128,11 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
    which then silently froze on first install) — now pinned to v3.5.2 with the same fix.
    Trivy deliberately left unpinned (tracks its own apt repo; a scanner benefits from current
    signatures more than a stable pin).
-   **Still open:** no actual refresh *process* exists — nothing flags when a pin goes stale,
-   you'd only find out by hand-checking GitHub releases. That's real Rung 1 scope. Also
-   confirmed with the same defect, not yet fixed: **Helm** (`curl | bash`, no version pin at
-   all), **LocalStack** (`pip`, no `version:` field), and **AWS CLI v2** (unversioned
-   download URL) — all three install-once-then-freeze, identical shape to Argo CD's original
-   bug, just not yet hit in practice.
+   **Resolved 2026-09-05 (Rung 1):** Helm, LocalStack and AWS CLI v2 all had the identical
+   install-once-then-freeze defect — fixed the same way (check installed version against the
+   pin, only reinstall on mismatch). `roles/updates` now also reports (opt-in, `--tags
+   version_check`) whether any pin has a newer release available, querying GitHub/PyPI/
+   HashiCorp — the "refresh process" gap this item originally flagged.
 3. ~~374 GB of unallocated LVM space waiting on `lvextend` + `resize2fs`.~~ **Resolved
    2026-09-04**: extended the root LV by `+100G` (100G → 200G) after clearing the old AI
    workload data, rather than the originally-planned `+300G` — kept ~274 GB unallocated in
@@ -142,6 +142,16 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
    account, `cp`, which has `(ALL) NOPASSWD: ALL` — unrestricted passwordless root. Fine for
    a lab, exactly what a Secure by Design review would flag. Flagged as the first ADR topic:
    should the automation account get NOPASSWD sudo, and what compensates for it?
+5. **LocalStack's CLI doesn't run on this box's Python.** `localstack --version` (and every
+   other `localstack` subcommand) fails with a `SyntaxError` at import time in LocalStack
+   2026.5.0's own bundled code — an f-string with nested double quotes
+   (`f"...{A["runtime_version"]}..."`), valid only from Python 3.12 onward (PEP 701), but
+   this box runs 3.10. Found 2026-09-05 while fixing LocalStack's version pin (worked around
+   there by checking `pip3 show` instead of running the broken CLI). **Real blocker for Rung
+   6's actual LocalStack exercises** (Terraform against LocalStack) — needs either a newer
+   Python for LocalStack or a different/older LocalStack release, decide then. Worth a
+   GitHub issue upstream — if their package metadata doesn't declare
+   `python_requires >= 3.12`, pip will keep installing a release that can't run on 3.10/3.11.
 
 ### Rung 0 checklist
 
@@ -172,8 +182,31 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 - [x] Add Charlie's SSH public key to the `ansible` account — already present in
   `~/.ssh/authorized_keys` (confirmed 2026-09-05), no action needed
 
-Then Rung 1: refactor `bootstrap.yml` into roles with Molecule tests, and write ADR-0001 on
-the NOPASSWD question.
+### Rung 1 checklist
+
+- [x] ADR-0001 on the `ansible` account's sudo model — written 2026-09-05, decision: leave
+  the current model unchanged (see `docs/adr/0001-ansible-sudo-model.md` for why command-
+  scoping and vaulted `become_pass` were both considered and rejected). ADR-0002 onward are
+  Charlie's to write; this one was a Claude-drafted worked example.
+- [x] Refactor `bootstrap.yml` into roles — done 2026-09-05: `common`, `docker`,
+  `k8s_tools`, `cli_tools`, `hashicorp`, `security_tools`, `updates`. Verified with a clean
+  full run (`ok=55 changed=1 failed=0`) — the one `changed` is an already-understood,
+  deliberate apt-cache-refresh task, not a regression.
+- [x] Fix the Helm/LocalStack/AWS CLI/Checkov pinning gap — done alongside the refactor,
+  same check-then-reinstall pattern as kubectl/k3d/Terraform/Argo CD. Helm pinned to 3.x
+  deliberately, not 4 (see `roles/cli_tools`) — v3's security-fix window closes 2026-11-11,
+  revisit before then.
+- [x] `roles/updates` freshness + support/EOL reporting (opt-in, `--tags version_check`) —
+  covers what's checkable (GitHub/PyPI/HashiCorp releases APIs, `endoflife.date` for
+  Ubuntu/Kubernetes); AWS CLI and most of the rest aren't tracked anywhere structured, noted
+  as such in the report rather than silently skipped.
+- [x] Relocate `ansible.cfg` to the repo root — it was sitting in `ansible/`, one level away
+  from both the inventory it points to and the repo root everything else runs from, so
+  `stdout_callback = yaml` was silently never taking effect. Fixed 2026-09-05.
+- [ ] Molecule tests — not started. Proposal first (driver choice, scenario shape) before
+  writing any.
+- [ ] Repo on a real PR-with-CI flow — branch protection, `ansible-lint`/`yamllint` in
+  GitHub Actions. Not started.
 
 *Keep this section current — it is the fastest way for a new session to pick up the thread.*
 

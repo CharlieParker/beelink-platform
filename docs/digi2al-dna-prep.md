@@ -441,7 +441,7 @@ job spec PDF) and tracking `docs/`.
 ## 11. Value-ordered ladder (replaces the calendar)
 
 **Status (updated 2026-09-05):** Rung 0 complete. Detailed checklist in
-`beelink-platform/CLAUDE.md`. Rung 1 not started.
+`beelink-platform/CLAUDE.md`. Rung 1: roles refactor and version pinning complete 2026-09-05; Molecule and the PR/CI flow still open — see the Rung 1 checklist there.
 
 Because the start date is unknown, work in rungs. **Each rung ends with something finished.**
 If clearance lands tomorrow, you stop and you've still gained something real.

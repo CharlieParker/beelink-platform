@@ -1,0 +1,46 @@
+---
+# Trivy (deliberately unpinned — tracks its own apt repo, decision recorded
+# 2026-09-05, unchanged here) and Checkov (previously unpinned via pip; same
+# install-once-then-freeze shape as Helm/LocalStack/AWS CLI, fixed here).
+#
+# NOTE: checkov_version is not yet defined in bootstrap.yml's vars — see the
+# same note in roles/hashicorp/tasks/main.yml.
+
+- name: Add Trivy APT key
+  apt_key:
+    url: https://get.trivy.dev/deb/public.key
+    state: present
+
+- name: Add Trivy APT repository
+  apt_repository:
+    repo: "deb https://get.trivy.dev/deb generic main"
+    filename: trivy
+    state: present
+
+- name: Update apt cache for Trivy repo
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install Trivy from APT repository
+  apt:
+    name: trivy
+    state: present
+
+- name: Verify Trivy is installed
+  command: trivy --version
+  register: trivy_verify
+  changed_when: false
+  failed_when: trivy_verify.rc != 0
+
+- name: Install Checkov {{ checkov_version }}
+  pip:
+    name: "checkov=={{ checkov_version }}"
+    executable: pip3
+    state: present
+
+- name: Verify Checkov version matches the pin
+  command: checkov --version
+  register: checkov_verify
+  changed_when: false
+  failed_when: checkov_version not in checkov_verify.stdout

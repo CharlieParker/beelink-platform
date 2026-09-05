@@ -21,66 +21,28 @@
     aws_cli_version: "2.36.4"  # no leading "v" — matches both the download URL and
                                 # `aws --version` output. Checked against the aws-cli
                                 # v2 CHANGELOG.rst 2026-09-05.
+    localstack_version: "2026.5.0"  # confirmed via `pip3 show localstack` on the box
+                                      # itself 2026-09-05 (couldn't get a reliable
+                                      # current figure from PyPI's API remotely, so
+                                      # pinned to what's already installed and working
+                                      # rather than guess — see roles/hashicorp).
+    checkov_version: "3.2.529"  # same reasoning, confirmed via `pip3 show checkov`.
 
-  # Docker install/hygiene and generic host prerequisites are now roles
-  # (extracted 2026-09-05 — Rung 1). Everything below "roles:" that hasn't
-  # been migrated yet (kubectl/k3d/argocd, Helm, Terraform, AWS CLI,
-  # LocalStack, Trivy, Checkov, verification, patch-status reporting) stays
-  # as plain tasks for now and moves into its own role incrementally, the
-  # same way docker/common just did. Roles always run before a play's own
-  # tasks: list, regardless of file order, so this is safe as-is.
+  # Refactored into roles 2026-09-05 (Rung 1). Only the final cross-cutting
+  # verification loop and patch-status-adjacent bits stay as plain tasks
+  # below, since they check *everything* the roles above installed rather
+  # than belonging to any one of them. Roles always run before a play's own
+  # tasks: list, regardless of file order.
   roles:
     - common
     - docker
     - k8s_tools
     - cli_tools
+    - hashicorp
+    - security_tools
+    - updates
 
   tasks:
-
-    - name: Install Terraform
-      unarchive:
-        src: >-
-          {{ 'https://releases.hashicorp.com/terraform/' ~ terraform_version
-            ~ '/terraform_' ~ terraform_version ~ '_linux_amd64.zip' }}
-        dest: /usr/local/bin
-        remote_src: true
-
-    - name: Install LocalStack via pip
-      pip:
-        name: localstack
-        executable: pip3
-
-    - name: Add Trivy APT key
-      apt_key:
-        url: https://get.trivy.dev/deb/public.key
-        state: present
-
-    - name: Add Trivy APT repository
-      apt_repository:
-        repo: "deb https://get.trivy.dev/deb generic main"
-        filename: trivy
-        state: present
-
-    - name: Update apt cache for Trivy repo
-      apt:
-        update_cache: true
-        cache_valid_time: 3600
-
-    - name: Install Trivy from APT repository
-      apt:
-        name: trivy
-        state: present
-
-    - name: Verify Trivy is installed
-      command: trivy --version
-      register: trivy_verify
-      changed_when: false
-      failed_when: trivy_verify.rc != 0
-
-    - name: Install Checkov
-      pip:
-        name: checkov
-        executable: pip3
 
     - name: Verify installed tools (looped checks)
       vars:
@@ -108,23 +70,6 @@
           loop: "{{ verify_cmds }}"
           register: verify_results
           changed_when: false
-
-    - name: Check for pending package upgrades
-      command: apt list --upgradable
-      register: pending_upgrades
-      changed_when: false
-
-    - name: Check whether a reboot is required
-      stat:
-        path: /var/run/reboot-required
-      register: reboot_required_stat
-      changed_when: false
-
-    - name: Report patch status
-      debug:
-        msg: >-
-          {{ (pending_upgrades.stdout_lines | length) - 1 }} package(s) upgradable.
-          Reboot required: {{ reboot_required_stat.stat.exists }}
 
     - name: Fail if any verification command failed
       fail:
