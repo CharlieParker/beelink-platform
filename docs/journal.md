@@ -109,3 +109,20 @@ Format: **date — what was done · what broke · what was learned · next**
   apps for the Navy. MOD replaced certificate-based accreditation with Secure by Design
   (continuous assurance cases), which reframes pipeline gates as assurance evidence.
 - **Next:** Rung 0 — recon the Beelink, then patch it.
+
+## 2026-09-05 (later) — Rung 0 closed: Ubuntu Pro/ESM
+
+- **Done:** Attached the Beelink to Ubuntu Pro's free personal subscription (`sudo pro
+  attach`) — `esm-apps`, `esm-infra` and `livepatch` all enabled. Re-ran
+  `apt update && apt full-upgrade -y`; no reboot required afterwards; `apt list --upgradable`
+  came back empty. Updated the Rung 0 checklist in `CLAUDE.md` (8/8) and the status line in
+  `docs/digi2al-dna-prep.md` §11 to "Rung 0 complete".
+- **Broke:** Nothing.
+- **Learned:** ESM-gated packages don't show up in a plain `apt update` at all until the
+  subscription is attached — they're not "held", they're simply not in scope. Also confirmed
+  `bootstrap.yml`'s patch-status task is read-only (reports pending count, never upgrades),
+  so the actual `full-upgrade` still has to be run by hand each cycle.
+- **Next:** Rung 1 — refactor `bootstrap.yml` into roles with Molecule tests, an `updates`
+  role, ADR-0001 on the `ansible`/`cp` sudo situation, and the Helm/LocalStack/AWS CLI
+  pinning gap. Going through it slower this time, documenting each piece as it lands rather
+  than at the end.

@@ -87,9 +87,7 @@ only the non-obvious parts) or "off" at any time. If he does, update this line.
 
 ## Current state
 
-**Rung 0 — Make the lab trustworthy: 7 of 7 tracked checklist items done, but one item from
-the original plan (§6/§11 of the prep doc) was never added to this checklist and is still
-outstanding: Ubuntu Pro/ESM enrollment.**
+**Rung 0 — Make the lab trustworthy: complete (8 of 8 checklist items, 2026-09-05).**
 See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 
 ### The Beelink, as surveyed 2026-09-04
@@ -154,8 +152,10 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
   playbook)
 - [x] Bump the pins in `bootstrap.yml` — done 2026-09-05, see Open Problem #2 above for the
   idempotency bug this surfaced and fixed along the way
-- [ ] Enable Ubuntu Pro/ESM (free, up to 5 personal machines) — named in the original plan's
-  Rung 0 definition, never added to this checklist until 2026-09-05
+- [x] Enable Ubuntu Pro/ESM (free, up to 5 personal machines) — attached 2026-09-05,
+  `esm-apps`/`esm-infra`/`livepatch` all enabled. Re-ran `apt update && apt full-upgrade -y`
+  afterwards to pull the previously-gated ESM packages; no reboot required;
+  `apt list --upgradable` clean.
 - [x] Add Charlie's SSH public key to the `ansible` account — already present in
   `~/.ssh/authorized_keys` (confirmed 2026-09-05), no action needed
 
