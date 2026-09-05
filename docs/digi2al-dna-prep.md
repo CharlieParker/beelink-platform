@@ -440,6 +440,9 @@ job spec PDF) and tracking `docs/`.
 
 ## 11. Value-ordered ladder (replaces the calendar)
 
+**Status (updated 2026-09-05):** Rung 0 nearly complete — one item outstanding (Ubuntu
+Pro/ESM enrollment). Detailed checklist in `beelink-platform/CLAUDE.md`. Rung 1 not started.
+
 Because the start date is unknown, work in rungs. **Each rung ends with something finished.**
 If clearance lands tomorrow, you stop and you've still gained something real.
 
