@@ -87,7 +87,9 @@ only the non-obvious parts) or "off" at any time. If he does, update this line.
 
 ## Current state
 
-**Rung 0 — Make the lab trustworthy: nearly complete (7 of 7 checklist items done).**
+**Rung 0 — Make the lab trustworthy: 7 of 7 tracked checklist items done, but one item from
+the original plan (§6/§11 of the prep doc) was never added to this checklist and is still
+outstanding: Ubuntu Pro/ESM enrollment.**
 See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 
 ### The Beelink, as surveyed 2026-09-04
@@ -116,8 +118,10 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
    signatures more than a stable pin).
    **Still open:** no actual refresh *process* exists — nothing flags when a pin goes stale,
    you'd only find out by hand-checking GitHub releases. That's real Rung 1 scope. Also
-   unaudited: Helm's install has no version pin at all (same shape as Argo CD's original bug,
-   just not yet hit).
+   confirmed with the same defect, not yet fixed: **Helm** (`curl | bash`, no version pin at
+   all), **LocalStack** (`pip`, no `version:` field), and **AWS CLI v2** (unversioned
+   download URL) — all three install-once-then-freeze, identical shape to Argo CD's original
+   bug, just not yet hit in practice.
 3. ~~374 GB of unallocated LVM space waiting on `lvextend` + `resize2fs`.~~ **Resolved
    2026-09-04**: extended the root LV by `+100G` (100G → 200G) after clearing the old AI
    workload data, rather than the originally-planned `+300G` — kept ~274 GB unallocated in
@@ -150,6 +154,8 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
   playbook)
 - [x] Bump the pins in `bootstrap.yml` — done 2026-09-05, see Open Problem #2 above for the
   idempotency bug this surfaced and fixed along the way
+- [ ] Enable Ubuntu Pro/ESM (free, up to 5 personal machines) — named in the original plan's
+  Rung 0 definition, never added to this checklist until 2026-09-05
 - [x] Add Charlie's SSH public key to the `ansible` account — already present in
   `~/.ssh/authorized_keys` (confirmed 2026-09-05), no action needed
 

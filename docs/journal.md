@@ -26,9 +26,16 @@
     k3s version is a separate, independently-moving target from k3d's own version number.
   - WSL2's NAT'd virtual network is a poor vantage point for LAN discovery (`nmap`, `.local`
     mDNS) even when point-to-point SSH works fine through it.
-- **Next:** Rung 0 checklist is now fully closed. Rung 1: refactor into roles + Molecule, add
-  an `updates` role that covers both OS patches *and* tool-pin freshness, audit Helm/AWS
-  CLI/LocalStack for the same unpinned-and-frozen issue Argo CD had.
+- **Next:** One Rung 0 item still outstanding: Ubuntu Pro/ESM enrollment — named in the
+  original plan but never added to the tracked checklist until today, caught only by
+  cross-checking the checklist against the plan's own wording. Confirmed (not just suspected)
+  that Helm, LocalStack, and AWS CLI v2 all share Argo CD's original bug: no version pin, and
+  an existence-only guard that freezes them on whatever was installed first. Also decided
+  today where cross-repo tracking lives once Rung 2+ spans sibling repos: the rung ladder
+  (prep doc) and this journal both stay centralized here in `beelink-platform`, since they
+  need to stay private regardless of which repo does the work — sibling repos get clean
+  history and no job-prep narration. Rung 1: refactor into roles + Molecule, add an `updates`
+  role covering OS patches *and* tool-pin freshness, fix Helm/LocalStack/AWS CLI's pinning.
 
 ---
 
