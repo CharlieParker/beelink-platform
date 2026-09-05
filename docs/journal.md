@@ -1,5 +1,38 @@
 # Session journal
 
+## 2026-09-05 — Rung 0: patching, pin bump, and a real idempotency bug
+
+- **Done:** `apt full-upgrade` + reboot (kernel 5.15.0-181 → 191). Descoped the DHCP
+  reservation deliberately (box stays powered on now; documented as a lab shortcut, not the
+  professional pattern). Bumped kubectl/k3d/terraform/Argo CD pins to current, pinned Argo CD
+  CLI for the first time, left Trivy deliberately unpinned. Removed `docker-buildx` from the
+  Docker-Inc purge list. Added a read-only patch-status report (pending upgrades,
+  reboot-required) to the playbook. Removed the stale `ai-net` Docker network manually over
+  SSH.
+- **Broke:** Bumping the version variables alone did nothing — kubectl/k3d/terraform's install
+  tasks only checked file *existence*, not version, so the old binaries never got replaced
+  until that guard logic was fixed. Argo CD's task had the same bug plus no pin at all,
+  silently frozen on `v3.4.2` while claiming to track `/latest/`. A `docker-buildx` package
+  name collision between the purge and install task lists caused Docker to restart on every
+  single playbook run, whether or not it was needed.
+- **Learned:**
+  - A version pin is only as real as the check that enforces it — `creates:`/`stat.exists`
+    guards check presence, not correctness, and can make a bumped variable a complete no-op.
+  - `get_url`'s `force: true` does real content comparison, not just "always re-download" —
+    the right idempotent primitive for "did the source at this URL actually change."
+  - `unarchive` already does its own content-based idempotency; a `creates:` guard on top of
+    it actively disables that, it doesn't add safety.
+  - `kubectl` should stay within one minor version of the cluster it talks to; k3d's default
+    k3s version is a separate, independently-moving target from k3d's own version number.
+  - WSL2's NAT'd virtual network is a poor vantage point for LAN discovery (`nmap`, `.local`
+    mDNS) even when point-to-point SSH works fine through it.
+- **Next:** Rung 0 checklist is now fully closed. Rung 1: refactor into roles + Molecule, add
+  an `updates` role that covers both OS patches *and* tool-pin freshness, audit Helm/AWS
+  CLI/LocalStack for the same unpinned-and-frozen issue Argo CD had.
+
+---
+
+
 One entry per working session. Newest at the top.
 
 Format: **date — what was done · what broke · what was learned · next**

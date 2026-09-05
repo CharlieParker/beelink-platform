@@ -87,7 +87,7 @@ only the non-obvious parts) or "off" at any time. If he does, update this line.
 
 ## Current state
 
-**Rung 0 — Make the lab trustworthy: recon complete, execution underway (2 of 7 checklist items done).**
+**Rung 0 — Make the lab trustworthy: nearly complete (7 of 7 checklist items done).**
 See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 
 ### The Beelink, as surveyed 2026-09-04
@@ -104,12 +104,20 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 
 ### Open problems
 
-1. **k3d is broken.** Docker 29.1.3 requires API ≥ 1.44; k3d v5.6.0 speaks 1.43, so it cannot
-   talk to the daemon. Latest k3d is v5.9.0. Nothing k3d-based works until this is bumped.
-2. **All the version pins have rotted**, not just k3d: `kubectl_version: v1.30.0`,
-   `terraform_version: 1.8.5`, `trivy_version: 0.50.2`, and k3d v5.6.0 still defaults to k3s
-   v1.27.4 (out of support). Pinning is correct; *not servicing the pins* is the defect.
-   Worth designing a lightweight refresh process as part of Rung 1.
+1. ~~k3d is broken~~ **Resolved 2026-09-05.** k3d bumped to v5.9.0 (Docker 29.1.3 needs API
+   ≥1.44; old k3d v5.6.0 only spoke 1.43).
+2. **The pins had rotted, and — worse — bumping them didn't work.** kubectl, k3d, and
+   Terraform's install tasks only checked "does a file already exist," not "does the installed
+   version match the pin" — so editing the variable silently did nothing. Fixed 2026-09-05:
+   kubectl → v1.37.0, k3d → v5.9.0, terraform → 1.16.1, all now version-*checked*, not just
+   version-*named*. Argo CD CLI had the same bug plus no pin at all (pointed at `/latest/`,
+   which then silently froze on first install) — now pinned to v3.5.2 with the same fix.
+   Trivy deliberately left unpinned (tracks its own apt repo; a scanner benefits from current
+   signatures more than a stable pin).
+   **Still open:** no actual refresh *process* exists — nothing flags when a pin goes stale,
+   you'd only find out by hand-checking GitHub releases. That's real Rung 1 scope. Also
+   unaudited: Helm's install has no version pin at all (same shape as Argo CD's original bug,
+   just not yet hit).
 3. ~~374 GB of unallocated LVM space waiting on `lvextend` + `resize2fs`.~~ **Resolved
    2026-09-04**: extended the root LV by `+100G` (100G → 200G) after clearing the old AI
    workload data, rather than the originally-planned `+300G` — kept ~274 GB unallocated in
@@ -127,7 +135,9 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
   containers, then removed
 - [x] Extend the root LV — `lvextend -L +100G` (not the originally-planned `+300G`) then
   `resize2fs`; confirmed with `df -h /`: 197G total, 30G used, 158G available
-- [ ] `sudo apt update && sudo apt full-upgrade -y`; reboot if `/var/run/reboot-required` exists
+- [x] `sudo apt update && sudo apt full-upgrade -y` — done 2026-09-05, rebooted for a kernel
+  bump (5.15.0-181 → 5.15.0-191). Added a read-only playbook task reporting pending-upgrade
+  count and reboot-required status on every run, so this stays visible going forward.
 - [x] ~~DHCP reservation for `192.168.1.130`~~ — **descoped 2026-09-05.** Confirmed key already
   present (see below) but address is still plain DHCP, not reserved. Decided against a router
   reservation: low job-spec relevance (home-router DHCP admin isn't the "networking" the spec
@@ -135,8 +145,11 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
   ever moves is a loud `UNREACHABLE!` from Ansible, not silent drift — fix by updating
   `hosts.ini`. Explicit lab shortcut, not the professional pattern; revisit if it ever actually
   bites.
-- [ ] Remove the stale `ai-net` Docker network
-- [ ] Bump the pins in `bootstrap.yml` (k3d v5.9.0 first) and re-run to confirm it still works
+- [x] Remove the stale `ai-net` Docker network — done 2026-09-05, `docker network rm ai-net`
+  run manually over SSH (machine-specific stale resource, not worth codifying in the
+  playbook)
+- [x] Bump the pins in `bootstrap.yml` — done 2026-09-05, see Open Problem #2 above for the
+  idempotency bug this surfaced and fixed along the way
 - [x] Add Charlie's SSH public key to the `ansible` account — already present in
   `~/.ssh/authorized_keys` (confirmed 2026-09-05), no action needed
 
