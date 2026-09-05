@@ -258,8 +258,6 @@
             ~ '/terraform_' ~ terraform_version ~ '_linux_amd64.zip' }}
         dest: /usr/local/bin
         remote_src: true
-      args:
-        creates: /usr/local/bin/terraform
 
     - name: Install LocalStack via pip
       pip:
