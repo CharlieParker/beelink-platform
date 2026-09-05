@@ -162,8 +162,7 @@
         mode: '0755'
         owner: root
         group: root
-        force: false
-      when: not kubectl_stat.stat.exists
+        force: true
 
     - name: Check if k3d exists
       stat:
