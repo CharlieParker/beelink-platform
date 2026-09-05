@@ -22,11 +22,17 @@ The playbook is **idempotent** and safe to re-run on a clean Ubuntu system.
 
 This bootstrap was originally one monolithic play. It's being refactored
 in place into roles (Rung 1, started 2026-09-05): `roles/common` (generic host
-prerequisites) and `roles/docker` (Docker install and the apt-repo/dpkg
-cleanup it historically needed) have landed so far. Everything else —
-kubectl/k3d/Argo CD, Helm, Terraform, AWS CLI, LocalStack, Trivy, Checkov,
-verification and patch-status reporting — is still plain tasks in
-`bootstrap.yml`, moving into its own role incrementally.
+prerequisites), `roles/docker` (Docker install and the apt-repo/dpkg cleanup
+it historically needed), `roles/k8s_tools` (kubectl, k3d, Argo CD CLI) and
+`roles/cli_tools` (Helm, AWS CLI v2) have landed so far. Terraform, LocalStack,
+Trivy, Checkov, verification and patch-status reporting are still plain tasks
+in `bootstrap.yml`, moving into their own roles (`hashicorp`, `security_tools`,
+`updates`) incrementally.
+
+Helm and AWS CLI v2 were also fixed to be properly version-pinned as part of
+this pass — both previously always installed "whatever's currently latest"
+with no way to pin or verify a specific version, the same bug already found
+and fixed in kubectl/k3d/Terraform/Argo CD.
 
 Considered and rejected: pulling in existing Galaxy roles/collections (e.g.
 `geerlingguy.docker`) instead of hand-rolling `roles/docker`. That role's

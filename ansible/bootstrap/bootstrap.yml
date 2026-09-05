@@ -14,6 +14,13 @@
     k3s_version: "v1.36.3+k3s1"  # target for k3d cluster creation once that exists;
                                   # paired with kubectl above to stay within the
                                   # supported one-minor-version client/server skew
+    helm_version: "v3.21.4"  # Helm 3, not 4 (v4 released Nov 2025) — real teams are
+                              # still overwhelmingly on v3; its security-fix window
+                              # closes 2026-11-11, revisit this pin before then.
+                              # Checked against github.com/helm/helm/releases 2026-09-05.
+    aws_cli_version: "2.36.4"  # no leading "v" — matches both the download URL and
+                                # `aws --version` output. Checked against the aws-cli
+                                # v2 CHANGELOG.rst 2026-09-05.
 
   # Docker install/hygiene and generic host prerequisites are now roles
   # (extracted 2026-09-05 — Rung 1). Everything below "roles:" that hasn't
@@ -25,108 +32,10 @@
   roles:
     - common
     - docker
+    - k8s_tools
+    - cli_tools
 
   tasks:
-
-    - name: Check if kubectl exists
-      stat:
-        path: /usr/local/bin/kubectl
-      register: kubectl_stat
-      changed_when: false
-
-    - name: Download kubectl binary
-      get_url:
-        url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
-        dest: /usr/local/bin/kubectl
-        mode: '0755'
-        owner: root
-        group: root
-        force: true
-
-    - name: Check if k3d exists
-      stat:
-        path: /usr/local/bin/k3d
-      register: k3d_stat
-      changed_when: false
-
-    - name: Download k3d binary
-      get_url:
-        url: "https://github.com/k3d-io/k3d/releases/download/{{ k3d_version }}/k3d-linux-amd64"
-        dest: /usr/local/bin/k3d
-        mode: '0755'
-        owner: root
-        group: root
-        force: true
-
-    - name: Check if argocd exists
-      stat:
-        path: /usr/local/bin/argocd
-      register: argocd_stat
-      changed_when: false
-
-    - name: Download Argo CD CLI binary
-      get_url:
-        url: "https://github.com/argoproj/argo-cd/releases/download/{{ argocd_version }}/argocd-linux-amd64"
-        dest: /usr/local/bin/argocd
-        mode: '0755'
-        owner: root
-        group: root
-        force: true
-
-    - name: Verify kubectl (try JSON output then fallback)
-      when: kubectl_stat.stat.exists
-      block:
-        - name: Run kubectl version --client --output=json
-          command: /usr/local/bin/kubectl version --client --output=json
-          register: kubectl_verify_json
-          changed_when: false
-          failed_when: false
-
-        - name: Run kubectl version --client (fallback)
-          command: /usr/local/bin/kubectl version --client
-          register: kubectl_verify_plain
-          changed_when: false
-          failed_when: false
-          when: kubectl_verify_json.rc != 0
-
-        - name: Fail if kubectl verification failed
-          fail:
-            msg: >-
-              kubectl verification failed. JSON rc={{ kubectl_verify_json.rc }},
-              plain rc={{ kubectl_verify_plain.rc | default('N/A') }}.
-              json_out={{ kubectl_verify_json.stdout | default('') }},
-              plain_out={{ kubectl_verify_plain.stdout | default('') }}.
-          when: kubectl_verify_json.rc != 0 and
-                (kubectl_verify_plain is not defined or kubectl_verify_plain.rc != 0)
-      rescue:
-        - name: Debug kubectl verify outputs on rescue
-          debug:
-            msg: >-
-              kubectl json rc={{ kubectl_verify_json.rc | default('undef') }},
-              stdout={{ kubectl_verify_json.stdout | default('') }},
-              stderr={{ kubectl_verify_json.stderr | default('') }};
-              kubectl plain rc={{ kubectl_verify_plain.rc | default('undef') }},
-              stdout={{ kubectl_verify_plain.stdout | default('') }},
-              stderr={{ kubectl_verify_plain.stderr | default('') }}.
-
-    - name: Verify k3d is executable
-      command: /usr/local/bin/k3d version
-      register: k3d_ver
-      changed_when: false
-      failed_when: k3d_ver.rc != 0
-      when: k3d_stat.stat.exists
-
-    - name: Verify argocd is executable
-      command: /usr/local/bin/argocd version --client
-      register: argocd_ver
-      changed_when: false
-      failed_when: argocd_ver.rc != 0
-      when: argocd_stat.stat.exists
-
-    - name: Install Helm (idempotent via creates)
-      shell: curl -fsSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
-      args:
-        creates: /usr/local/bin/helm
 
     - name: Install Terraform
       unarchive:
@@ -140,14 +49,6 @@
       pip:
         name: localstack
         executable: pip3
-
-    - name: Install AWS CLI v2
-      shell: >
-        curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip &&
-        unzip -o /tmp/awscliv2.zip -d /tmp &&
-        /tmp/aws/install
-      args:
-        creates: /usr/local/bin/aws
 
     - name: Add Trivy APT key
       apt_key:
@@ -196,6 +97,10 @@
             cmd: /usr/local/bin/argocd version --client
           - name: checkov
             cmd: checkov --version
+          - name: helm
+            cmd: /usr/local/bin/helm version --short
+          - name: aws
+            cmd: aws --version
       when: verify_cmds is defined
       block:
         - name: Run verification commands

@@ -1,0 +1,101 @@
+---
+# kubectl, k3d and the Argo CD CLI. All three follow the same shape: always
+# force-download the exact pinned URL (no stat-gated skip — that was the
+# idempotency bug fixed 2026-09-05, where editing the version var silently
+# did nothing because a stat check only asked "does a file exist", never
+# "does it match the pin"), then verify the binary actually runs.
+
+- name: Check if kubectl exists
+  stat:
+    path: /usr/local/bin/kubectl
+  register: kubectl_stat
+  changed_when: false
+
+- name: Download kubectl binary
+  get_url:
+    url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
+    dest: /usr/local/bin/kubectl
+    mode: '0755'
+    owner: root
+    group: root
+    force: true
+
+- name: Check if k3d exists
+  stat:
+    path: /usr/local/bin/k3d
+  register: k3d_stat
+  changed_when: false
+
+- name: Download k3d binary
+  get_url:
+    url: "https://github.com/k3d-io/k3d/releases/download/{{ k3d_version }}/k3d-linux-amd64"
+    dest: /usr/local/bin/k3d
+    mode: '0755'
+    owner: root
+    group: root
+    force: true
+
+- name: Check if argocd exists
+  stat:
+    path: /usr/local/bin/argocd
+  register: argocd_stat
+  changed_when: false
+
+- name: Download Argo CD CLI binary
+  get_url:
+    url: "https://github.com/argoproj/argo-cd/releases/download/{{ argocd_version }}/argocd-linux-amd64"
+    dest: /usr/local/bin/argocd
+    mode: '0755'
+    owner: root
+    group: root
+    force: true
+
+- name: Verify kubectl (try JSON output then fallback)
+  when: kubectl_stat.stat.exists
+  block:
+    - name: Run kubectl version --client --output=json
+      command: /usr/local/bin/kubectl version --client --output=json
+      register: kubectl_verify_json
+      changed_when: false
+      failed_when: false
+
+    - name: Run kubectl version --client (fallback)
+      command: /usr/local/bin/kubectl version --client
+      register: kubectl_verify_plain
+      changed_when: false
+      failed_when: false
+      when: kubectl_verify_json.rc != 0
+
+    - name: Fail if kubectl verification failed
+      fail:
+        msg: >-
+          kubectl verification failed. JSON rc={{ kubectl_verify_json.rc }},
+          plain rc={{ kubectl_verify_plain.rc | default('N/A') }}.
+          json_out={{ kubectl_verify_json.stdout | default('') }},
+          plain_out={{ kubectl_verify_plain.stdout | default('') }}.
+      when: kubectl_verify_json.rc != 0 and
+            (kubectl_verify_plain is not defined or kubectl_verify_plain.rc != 0)
+  rescue:
+    - name: Debug kubectl verify outputs on rescue
+      debug:
+        msg: >-
+          kubectl json rc={{ kubectl_verify_json.rc | default('undef') }},
+          stdout={{ kubectl_verify_json.stdout | default('') }},
+          stderr={{ kubectl_verify_json.stderr | default('') }};
+          kubectl plain rc={{ kubectl_verify_plain.rc | default('undef') }},
+          stdout={{ kubectl_verify_plain.stdout | default('') }},
+          stderr={{ kubectl_verify_plain.stderr | default('') }}.
+
+- name: Verify k3d is executable
+  command: /usr/local/bin/k3d version
+  register: k3d_ver
+  changed_when: false
+  failed_when: k3d_ver.rc != 0
+  when: k3d_stat.stat.exists
+
+- name: Verify argocd is executable
+  command: /usr/local/bin/argocd version --client
+  register: argocd_ver
+  changed_when: false
+  failed_when: argocd_ver.rc != 0
+  when: argocd_stat.stat.exists
