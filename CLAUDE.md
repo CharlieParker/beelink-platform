@@ -70,6 +70,19 @@ and when a command is a habit worth keeping versus a one-off.
 **Verbosity dial — currently: `full`.** Charlie can say "brief" (one bullet per command,
 only the non-obvious parts) or "off" at any time. If he does, update this line.
 
+## ADRs
+
+- **Charlie writes ADR content from ADR-0002 onward.** It's deliberate practice — the
+  judgement calls an ADR captures (what trade-off matters, what you'd defend in review) are
+  the point, and no real review panel expects an AI-drafted one. Claude's role for future
+  ADRs is coaching and critique (is the Context honest, does Consequences actually follow,
+  should Status move from Proposed to Accepted), not drafting.
+- **ADR-0001 is the one exception** — written by Claude as a worked example so Charlie had a
+  concrete template before writing his own. Treat its format (Status/Date/Context/Options
+  considered/Decision/Consequences) as the convention going forward.
+- Live in `docs/adr/`, numbered sequentially, kebab-case filenames
+  (`000N-short-title.md`).
+
 ## Learning posture
 
 - **Explain the why, not just the how.** The mechanism matters more than the recipe.

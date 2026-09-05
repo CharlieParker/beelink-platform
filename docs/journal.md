@@ -126,3 +126,21 @@ Format: **date — what was done · what broke · what was learned · next**
   role, ADR-0001 on the `ansible`/`cp` sudo situation, and the Helm/LocalStack/AWS CLI
   pinning gap. Going through it slower this time, documenting each piece as it lands rather
   than at the end.
+
+## 2026-09-05 (later still) — ADR-0001 and ADR authorship convention
+
+- **Done:** Wrote `docs/adr/0001-ansible-sudo-model.md` — decision: keep `ansible`'s current
+  sudo model (full scope, password-gated via `-K`) unchanged. Considered and rejected
+  scoping sudo to a command allow-list (doesn't work against Ansible's module-execution
+  model — modules run as generated Python scripts, not fixed shell commands) and vaulted
+  `become_pass` (removes the prompt but not the privilege, and relocates rather than removes
+  the secret, with no current unattended-run need to justify it). Revisit trigger: the first
+  time a role needs to run unattended. Added an "ADRs" section to `CLAUDE.md`: Charlie writes
+  ADR content from ADR-0002 onward as deliberate practice; Claude drafted ADR-0001 only as a
+  worked example and coaches rather than drafts from here.
+- **Broke:** Nothing.
+- **Learned:** Ansible modules execute as a generated Python script (or piped via stdin under
+  pipelining), not as literal shell commands — so sudoers command-matching can't meaningfully
+  scope most `bootstrap.yml` tasks; only `shell:`/`command:` tasks against fixed binaries are
+  actually scopable that way.
+- **Next:** Rung 1's main piece — refactor `bootstrap.yml` into roles with Molecule tests.
