@@ -98,7 +98,7 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 | CPU / RAM | AMD Ryzen 7 3750H, 8 threads, **13 GiB RAM**, 4 GiB swap |
 | Disk | 477 GB NVMe. Root LV extended to **200 GB of a 474 GB volume group — 274 GB unallocated** |
 | Disk in use | 30 GB. `/opt/ollama` (20 GB) and `/opt/open-webui` (889 MB) confirmed as old local-LLM experiments and removed 2026-09-04 |
-| Network | Wi-Fi on `wlp3s0`. `eno1` exists but is unplugged, and the router has no spare ports. Address is DHCP, not reserved |
+| Network | Wi-Fi on `wlp3s0`. `eno1` exists but is unplugged, and the router has no spare ports. Address is DHCP (not reserved) — deliberately left that way, see checklist |
 | OS | Ubuntu 22.04.5, kernel 5.15.0-181-generic. `unattended-upgrades` enabled, but the box is often powered off so patches lag |
 | Cluster state | **None.** No k3d cluster has ever been built. Only a `hello-world` image. Stale `ai-net` Docker bridge left over |
 
@@ -128,10 +128,17 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 - [x] Extend the root LV — `lvextend -L +100G` (not the originally-planned `+300G`) then
   `resize2fs`; confirmed with `df -h /`: 197G total, 30G used, 158G available
 - [ ] `sudo apt update && sudo apt full-upgrade -y`; reboot if `/var/run/reboot-required` exists
-- [ ] DHCP reservation for `192.168.1.130` on the router (`hosts.ini` hard-codes it)
+- [x] ~~DHCP reservation for `192.168.1.130`~~ — **descoped 2026-09-05.** Confirmed key already
+  present (see below) but address is still plain DHCP, not reserved. Decided against a router
+  reservation: low job-spec relevance (home-router DHCP admin isn't the "networking" the spec
+  means), box now stays powered on rather than often-off, and the failure mode if the lease
+  ever moves is a loud `UNREACHABLE!` from Ansible, not silent drift — fix by updating
+  `hosts.ini`. Explicit lab shortcut, not the professional pattern; revisit if it ever actually
+  bites.
 - [ ] Remove the stale `ai-net` Docker network
 - [ ] Bump the pins in `bootstrap.yml` (k3d v5.9.0 first) and re-run to confirm it still works
-- [ ] Add Charlie's SSH public key to the `ansible` account
+- [x] Add Charlie's SSH public key to the `ansible` account — already present in
+  `~/.ssh/authorized_keys` (confirmed 2026-09-05), no action needed
 
 Then Rung 1: refactor `bootstrap.yml` into roles with Molecule tests, and write ADR-0001 on
 the NOPASSWD question.
