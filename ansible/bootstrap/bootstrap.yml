@@ -96,7 +96,6 @@
           - docker-ce-rootless-extras
           - docker-compose-plugin
           - docker-buildx-plugin
-          - docker-buildx
         state: absent
         purge: true
         autoremove: true
