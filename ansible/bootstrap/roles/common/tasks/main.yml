@@ -1,0 +1,25 @@
+---
+# Generic host prerequisites, independent of any one tool. Later roles (helm,
+# awscli, hashicorp) depend on curl/unzip/jq/git being present and on
+# /usr/local/bin existing as an install target.
+
+- name: Ensure base packages are installed
+  apt:
+    name:
+      - curl
+      - unzip
+      - jq
+      - git
+      - python3
+      - python3-pip
+      - python3-venv
+    state: present
+    update_cache: true
+
+- name: Ensure /usr/local/bin exists
+  file:
+    path: /usr/local/bin
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root

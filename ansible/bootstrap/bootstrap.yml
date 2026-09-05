@@ -15,140 +15,18 @@
                                   # paired with kubectl above to stay within the
                                   # supported one-minor-version client/server skew
 
-  handlers:
-    - name: Restart docker
-      systemd:
-        name: docker
-        state: restarted
-        enabled: true
+  # Docker install/hygiene and generic host prerequisites are now roles
+  # (extracted 2026-09-05 — Rung 1). Everything below "roles:" that hasn't
+  # been migrated yet (kubectl/k3d/argocd, Helm, Terraform, AWS CLI,
+  # LocalStack, Trivy, Checkov, verification, patch-status reporting) stays
+  # as plain tasks for now and moves into its own role incrementally, the
+  # same way docker/common just did. Roles always run before a play's own
+  # tasks: list, regardless of file order, so this is safe as-is.
+  roles:
+    - common
+    - docker
 
   tasks:
-
-    - name: Remove any existing Docker apt sources and keyrings
-      file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /etc/apt/sources.list.d/docker.list
-        - /etc/apt/sources.list.d/docker.list.save
-        - /etc/apt/sources.list.d/docker-ce.list
-        - /etc/apt/sources.list.d/docker-ce.list.save
-        - /etc/apt/sources.list.d/download_docker_com_linux_ubuntu.list
-        - /etc/apt/sources.list.d/download_docker_com_linux_ubuntu.list.save
-        - /etc/apt/sources.list.d/docker.sources
-        - /etc/apt/sources.list.d/docker.sources.save
-        - /usr/share/keyrings/docker-ce.gpg
-        - /etc/apt/keyrings/docker.gpg
-
-    - name: Remove Docker repo from main sources.list if present
-      lineinfile:
-        path: /etc/apt/sources.list
-        regexp: '^deb .*download\.docker\.com'
-        state: absent
-
-    - name: Update apt cache
-      apt:
-        update_cache: true
-        cache_valid_time: 3600
-
-    - name: Show held packages
-      command: apt-mark showhold
-      register: held_packages
-      changed_when: false
-
-    - name: Unhold held packages (if any)
-      command: apt-mark unhold "{{ item }}"
-      loop: "{{ held_packages.stdout_lines }}"
-      register: unhold_results
-      when: held_packages.stdout_lines | length > 0
-      changed_when: true
-
-    - name: Fail if any unhold operation failed
-      fail:
-        msg: >-
-          One or more packages could not be unheld: {{ failed_unholds | join(', ') }}.
-          Please inspect the node and unhold them manually.
-      vars:
-        failed_unholds: >-
-          {{ (unhold_results.results
-              | selectattr('rc', 'ne', 0)
-              | map(attribute='item')
-              | list) if (unhold_results is defined) else [] }}
-      when: unhold_results is defined and
-            (unhold_results.results | selectattr('rc', 'ne', 0) | list | length) > 0
-
-    - name: Check dpkg audit for broken packages
-      command: dpkg -C
-      register: dpkg_audit
-      changed_when: false
-
-    - name: Repair dpkg/apt state if dpkg audit reports problems
-      command: /bin/bash -lc "apt-get -f install -y && dpkg --configure -a"
-      when: dpkg_audit.stdout != ""
-      register: dpkg_repair
-      changed_when: "'installed' in dpkg_repair.stdout or dpkg_repair.rc == 0"
-
-    - name: Purge known conflicting Docker Inc and plugin packages
-      apt:
-        name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-ce-rootless-extras
-          - docker-compose-plugin
-          - docker-buildx-plugin
-        state: absent
-        purge: true
-        autoremove: true
-        update_cache: true
-
-    - name: Ensure base packages are installed
-      apt:
-        name:
-          - curl
-          - unzip
-          - jq
-          - git
-          - python3
-          - python3-pip
-          - python3-venv
-        state: present
-        update_cache: true
-
-    - name: Ensure apt cache is fresh after removals
-      apt:
-        update_cache: true
-        cache_valid_time: 0
-
-    - name: Install Docker from Ubuntu repository (docker.io stack)
-      apt:
-        name:
-          - docker.io
-          - docker-compose-v2
-          - docker-buildx
-        state: present
-        update_cache: true
-      notify: Restart docker
-
-    - name: Ensure Docker service is enabled and running
-      systemd:
-        name: docker
-        enabled: true
-        state: started
-
-    - name: Add ansible user to docker group
-      user:
-        name: ansible
-        groups: docker
-        append: true
-
-    - name: Ensure /usr/local/bin exists
-      file:
-        path: /usr/local/bin
-        state: directory
-        mode: '0755'
-        owner: root
-        group: root
 
     - name: Check if kubectl exists
       stat:
