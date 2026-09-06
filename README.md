@@ -10,3 +10,18 @@ Update `inventory/hosts.ini` with your BeeLink’s host and user, then run:
 ```bash
 ansible-playbook -i inventory/hosts.ini ansible/bootstrap/bootstrap.yml -K
 ```
+## Molecule tooling (local)
+
+Molecule (Ansible role testing) needs its own Python environment — it is not required
+to run `bootstrap.yml` itself. Set it up once from the repo root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements-molecule.txt
+```
+
+Activate `.venv` (`source .venv/bin/activate`) before running any `molecule` command;
+`deactivate` returns you to your normal shell. This venv's `ansible-core` is
+deliberately separate from whatever you use for everyday `bootstrap.yml` runs.
