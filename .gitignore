@@ -3,3 +3,6 @@ ignoreme/*
 # Ansible runtime caches
 .ansible/
 **/.ansible/
+
+# Python virtualenv for Molecule tooling (see README)
+.venv/
