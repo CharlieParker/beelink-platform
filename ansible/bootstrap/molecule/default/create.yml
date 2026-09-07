@@ -1,35 +1,254 @@
 ---
+# Purpose: provision a disposable KVM VM on the Beelink for Molecule to test
+# the bootstrap roles against, then hand its connection details to Molecule's
+# dynamic inventory. Runs on localhost (your WSL box) and delegates the
+# actual libvirt work to the Beelink itself via delegate_to, since that's
+# where KVM lives.
+
 - name: Create
   hosts: localhost
   connection: local
   gather_facts: false
-  # no_log: "{{ molecule_no_log }}"
+
+  vars:
+    # Fixed rather than derived from molecule_scenario_name: that variable
+    # turned out not to be injected into create.yml/destroy.yml by this
+    # Molecule version (unlike molecule_instance_config, which is). Since
+    # this scenario only ever runs one VM at a time, a fixed name is
+    # simpler and just as correct.
+    vm_name: molecule-bootstrap-test
+    libvirt_pool_dir: /var/lib/libvirt/images/molecule
+    base_image_url: https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+    base_image_path: /var/lib/libvirt/images/base/jammy-server-cloudimg-amd64.img
+    overlay_path: "{{ libvirt_pool_dir }}/{{ vm_name }}.qcow2"
+    seed_iso_path: "{{ libvirt_pool_dir }}/{{ vm_name }}-seed.iso"
+
   tasks:
-    # TODO: Developer must implement and populate 'server' variable
+    - name: Read the Beelink's connection details from the shared inventory
+      # Single source of truth: this is the same inventory/hosts.ini that
+      # bootstrap.yml itself uses, so there's only one place the Beelink's
+      # address/user ever needs updating. Lab shortcut: the regexes below
+      # assume the current one-host-one-line format. If the inventory ever
+      # grows past a single host, switch to `ansible-inventory --list` and
+      # parse its JSON properly instead.
+      ansible.builtin.set_fact:
+        hosts_ini_content: "{{ lookup('ansible.builtin.file', playbook_dir + '/../../../../inventory/hosts.ini') }}"
 
-    - name: Create instance config
-      when: server.changed | default(false) | bool  # noqa no-handler
-      block:
-        - name: Populate instance config dict  # noqa jinja
-          ansible.builtin.set_fact:
-            instance_conf_dict: {}
-            # instance': "{{ }}",
-            # address': "{{ }}",
-            # user': "{{ }}",
-            # port': "{{ }}",
-            # 'identity_file': "{{ }}", }
-          with_items: "{{ server.results }}"
-          register: instance_config_dict
+    - name: Extract the Beelink's address and SSH user
+      ansible.builtin.set_fact:
+        beelink_address: "{{ hosts_ini_content | regex_search('^([0-9.]+)', multiline=True) }}"
+        beelink_user: "{{ hosts_ini_content | regex_search('(?<=ansible_user=)\\S+') }}"
 
-        - name: Convert instance config dict to a list
-          ansible.builtin.set_fact:
-            instance_conf: "{{ instance_config_dict.results | map(attribute='ansible_facts.instance_conf_dict') | list }}"
+    - name: Register the Beelink as a delegation target for this play
+      # add_host creates an in-memory inventory entry for this play only —
+      # nothing is written to disk. Every task below that needs to run real
+      # libvirt commands uses delegate_to: beelink_target to execute there
+      # instead of on localhost, using the connection details just parsed.
+      ansible.builtin.add_host:
+        name: beelink_target
+        ansible_host: "{{ beelink_address }}"
+        ansible_user: "{{ beelink_user }}"
+        ansible_connection: ssh
+        # ansible_connection: ssh — without this, the play's own
+        # `connection: local` (correct for the localhost-only tasks in this
+        # play) leaks into delegated tasks too and they silently run on
+        # your own machine instead of the Beelink. Setting it explicitly
+        # here, as a host var on the delegated target, overrides that.
 
-        - name: Dump instance config
-          ansible.builtin.copy:
-            content: |
-              # Molecule managed
+    - name: Ensure cloud-image-utils is installed on the Beelink
+      # Provides cloud-localds, used below to build the cloud-init seed ISO.
+      ansible.builtin.apt:
+        name: cloud-image-utils
+        state: present
+      become: true
+      delegate_to: beelink_target
 
-              {{ instance_conf | to_json | from_json | to_yaml }}
-            dest: "{{ molecule_instance_config }}"
-            mode: "0600"
+    - name: Ensure the Molecule image/seed directory exists
+      ansible.builtin.file:
+        path: "{{ libvirt_pool_dir }}"
+        state: directory
+        owner: libvirt-qemu
+        group: kvm
+        mode: "0755"
+      become: true
+      delegate_to: beelink_target
+
+    - name: Ensure the base image directory exists
+      # Separate from libvirt_pool_dir above: this one holds the shared,
+      # read-only base image; libvirt_pool_dir holds per-run overlays and
+      # seed ISOs. Missed this the first time round — get_url doesn't
+      # create missing destination directories for you.
+      ansible.builtin.file:
+        path: "{{ base_image_path | dirname }}"
+        state: directory
+        owner: libvirt-qemu
+        group: kvm
+        mode: "0755"
+      become: true
+      delegate_to: beelink_target
+
+    - name: Download the Ubuntu 22.04 cloud image
+      # Downloaded once and reused as the read-only base for every overlay
+      # (get_url only re-fetches if the remote content actually changes).
+      ansible.builtin.get_url:
+        url: "{{ base_image_url }}"
+        dest: "{{ base_image_path }}"
+        mode: "0644"
+      become: true
+      delegate_to: beelink_target
+
+    - name: Check whether this VM is already defined
+      # Guards against a previous run that failed to clean up. rc != 0
+      # means virsh doesn't know this domain, i.e. safe to create fresh.
+      ansible.builtin.command: "virsh dominfo {{ vm_name }}"
+      register: existing_vm
+      changed_when: false
+      failed_when: false
+      become: true
+      delegate_to: beelink_target
+
+    - name: Read the Beelink's authorised SSH key for the ansible account
+      # Reuse the key already trusted on the real Beelink rather than asking
+      # Charlie to supply one separately — one key, one place it's managed.
+      ansible.builtin.slurp:
+        src: "/home/{{ beelink_user }}/.ssh/authorized_keys"
+      register: beelink_authorized_keys
+      become: true
+      delegate_to: beelink_target
+      when: existing_vm.rc != 0
+
+    - name: Create a per-run qcow2 overlay disk against the base image
+      # An overlay is a small "diff" file: it only records what changes
+      # from the base image, so creating it is near-instant and the shared
+      # base image is never modified or duplicated.
+      ansible.builtin.command: >
+        qemu-img create -f qcow2 -F qcow2 -b {{ base_image_path }}
+        {{ overlay_path }}
+      become: true
+      delegate_to: beelink_target
+      when: existing_vm.rc != 0
+
+    - name: Write the cloud-init user-data
+      # #cloud-config tells cloud-init (already built into the Ubuntu cloud
+      # image) to create the same user/access as the real Beelink on first
+      # boot, with no one at a keyboard.
+      ansible.builtin.copy:
+        dest: "{{ libvirt_pool_dir }}/{{ vm_name }}-user-data"
+        mode: "0644"
+        content: |
+          #cloud-config
+          hostname: {{ vm_name }}
+          users:
+            - name: {{ beelink_user }}
+              sudo: ALL=(ALL) NOPASSWD:ALL
+              shell: /bin/bash
+              ssh_authorized_keys:
+                - {{ (beelink_authorized_keys.content | b64decode).strip() }}
+      become: true
+      delegate_to: beelink_target
+      when: existing_vm.rc != 0
+
+    - name: Write the cloud-init meta-data
+      ansible.builtin.copy:
+        dest: "{{ libvirt_pool_dir }}/{{ vm_name }}-meta-data"
+        mode: "0644"
+        content: |
+          instance-id: {{ vm_name }}
+          local-hostname: {{ vm_name }}
+      become: true
+      delegate_to: beelink_target
+      when: existing_vm.rc != 0
+
+    - name: Build the NoCloud seed ISO from the cloud-init files
+      # cloud-init looks for exactly this pair of filenames on any disc
+      # attached at boot — that's the "NoCloud" datasource mechanism.
+      ansible.builtin.command: >
+        cloud-localds {{ seed_iso_path }}
+        {{ libvirt_pool_dir }}/{{ vm_name }}-user-data
+        {{ libvirt_pool_dir }}/{{ vm_name }}-meta-data
+      become: true
+      delegate_to: beelink_target
+      when: existing_vm.rc != 0
+
+    - name: Define and start the VM
+      ansible.builtin.command: >
+        virt-install --import --name {{ vm_name }}
+        --memory 2048 --vcpus 2
+        --disk path={{ overlay_path }},format=qcow2
+        --disk path={{ seed_iso_path }},device=cdrom
+        --network network=default
+        --os-variant ubuntu22.04
+        --graphics none --noautoconsole
+      become: true
+      delegate_to: beelink_target
+      when: existing_vm.rc != 0
+
+    - name: Find the VM's network interface MAC address
+      ansible.builtin.shell: >
+        virsh domiflist {{ vm_name }} | awk '/network/ {print $5}'
+      register: vm_mac
+      changed_when: false
+      become: true
+      delegate_to: beelink_target
+
+    - name: Wait for the VM to appear in the Beelink's DHCP leases
+      # Reads libvirt's own DHCP lease table rather than needing a guest
+      # agent installed inside the VM just to ask its own address.
+      ansible.builtin.shell: >
+        virsh net-dhcp-leases default | grep -i {{ vm_mac.stdout.strip() }} | awk '{print $5}' | cut -d/ -f1
+      register: vm_lease
+      until: (vm_lease.stdout | trim | length) > 0
+      retries: 30
+      delay: 5
+      changed_when: false
+      become: true
+      delegate_to: beelink_target
+
+    - name: Wait for SSH to come up on the VM
+      # Delegated to the Beelink because the VM's address is only reachable
+      # from the Beelink's own network (NAT'd behind virbr0), not from your
+      # laptop.
+      ansible.builtin.wait_for:
+        host: "{{ vm_lease.stdout | trim }}"
+        port: 22
+        timeout: 120
+      delegate_to: beelink_target
+
+    - name: Populate the instance config Molecule will use
+      ansible.builtin.set_fact:
+        instance_conf:
+          - instance: "{{ vm_name }}"
+            address: "{{ vm_lease.stdout | trim }}"
+            user: "{{ beelink_user }}"
+            port: 22
+            identity_file: "{{ '~/.ssh/id_ed25519' | expanduser }}"
+            ansible_ssh_common_args: "-o ProxyJump={{ beelink_user }}@{{ beelink_address }}"
+            # This VM's address is only reachable from the Beelink's own
+            # network (virbr0's private NAT range), never directly from
+            # your laptop — confirmed the hard way when `molecule login`
+            # timed out trying to connect straight there. ProxyJump tells
+            # SSH to route through the Beelink automatically: it opens a
+            # connection there first (using the same key/identity_file),
+            # then tunnels the real connection to the VM through it — one
+            # command instead of the manual two-hop (ssh -A into the
+            # Beelink, then ssh again from there) we did by hand to verify
+            # this worked at all.
+            # An empty string here originally caused a worse failure than
+            # omitting the key entirely: Molecule built a malformed SSH
+            # command (`ssh -i -o ControlMaster=auto ...`, `-i` swallowing
+            # the next flag as its filename) rather than just skipping -i.
+            # The real path, confirmed with
+            # `ssh -G ansible@192.168.1.130 | grep -i identityfile` against
+            # the key actually listed in the Beelink's authorized_keys.
+            # `expanduser` resolves the ~ to an absolute path at the point
+            # this runs (on your WSL box, the control node) — the same
+            # place SSH itself needs to find it.
+
+    - name: Dump instance config
+      ansible.builtin.copy:
+        content: |
+          # Molecule managed
+
+          {{ instance_conf | to_json | from_json | to_yaml }}
+        dest: "{{ molecule_instance_config }}"
+        mode: "0600"

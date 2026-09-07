@@ -1,17 +1,68 @@
 ---
+# Purpose: tear down the disposable VM this scenario created (if any) and
+# reset Molecule's instance record. Deliberately tolerant of "there's
+# nothing to destroy" — Molecule's test sequence runs destroy both before
+# create (cleaning up any stray leftovers) and again after verify.
+
 - name: Destroy
   hosts: localhost
   connection: local
   gather_facts: false
-  # no_log: "{{ molecule_no_log }}"
-  tasks:
-    # Developer must implement.
 
-    # Mandatory configuration for Molecule to function.
+  tasks:
+    - name: Check whether a previous instance record exists
+      ansible.builtin.stat:
+        path: "{{ molecule_instance_config }}"
+      register: instance_config_file
+
+    - name: Load the previous instance record, if any
+      ansible.builtin.set_fact:
+        previous_instance: "{{ lookup('ansible.builtin.file', molecule_instance_config) | from_yaml }}"
+      when: instance_config_file.stat.exists
+
+    - name: Read the Beelink's connection details from the shared inventory
+      ansible.builtin.set_fact:
+        hosts_ini_content: "{{ lookup('ansible.builtin.file', playbook_dir + '/../../../../inventory/hosts.ini') }}"
+      when: (previous_instance | default([])) | length > 0
+
+    - name: Extract the Beelink's address and SSH user
+      ansible.builtin.set_fact:
+        beelink_address: "{{ hosts_ini_content | regex_search('^([0-9.]+)', multiline=True) }}"
+        beelink_user: "{{ hosts_ini_content | regex_search('(?<=ansible_user=)\\S+') }}"
+      when: (previous_instance | default([])) | length > 0
+
+    - name: Register the Beelink as a delegation target for this play
+      ansible.builtin.add_host:
+        name: beelink_target
+        ansible_host: "{{ beelink_address }}"
+        ansible_user: "{{ beelink_user }}"
+        ansible_connection: ssh
+        # ansible_connection: ssh — without this, the play's own
+        # `connection: local` (correct for the localhost-only tasks in this
+        # play) leaks into delegated tasks too and they silently run on
+        # your own machine instead of the Beelink. Setting it explicitly
+        # here, as a host var on the delegated target, overrides that.
+      when: (previous_instance | default([])) | length > 0
+
+    - name: Stop the VM
+      ansible.builtin.command: "virsh destroy {{ previous_instance[0].instance }}"
+      become: true
+      delegate_to: beelink_target
+      failed_when: false
+      changed_when: true
+      when: (previous_instance | default([])) | length > 0
+
+    - name: Undefine the VM and remove its disks (overlay + seed ISO)
+      ansible.builtin.command: "virsh undefine {{ previous_instance[0].instance }} --remove-all-storage"
+      become: true
+      delegate_to: beelink_target
+      failed_when: false
+      changed_when: true
+      when: (previous_instance | default([])) | length > 0
 
     - name: Populate instance config
       ansible.builtin.set_fact:
-        instance_conf: {}
+        instance_conf: []
 
     - name: Dump instance config
       ansible.builtin.copy:
@@ -21,4 +72,3 @@
           {{ instance_conf | to_json | from_json | to_yaml }}
         dest: "{{ molecule_instance_config }}"
         mode: "0600"
-      when: server.changed | default(false) | bool  # noqa no-handler

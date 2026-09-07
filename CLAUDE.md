@@ -70,6 +70,14 @@ and when a command is a habit worth keeping versus a one-off.
 **Verbosity dial — currently: `full`.** Charlie can say "brief" (one bullet per command,
 only the non-obvious parts) or "off" at any time. If he does, update this line.
 
+## Explaining terms
+
+Same instinct as commands: any acronym or piece of jargon gets spelled out in plain
+language the first time it's used in a session — what the letters stand for (if it's an
+acronym) and what the thing actually is in this context. Don't assume it's already known,
+and don't wait to be asked. Once explained, it doesn't need re-explaining every time it
+recurs in the same session unless he asks for a refresher.
+
 ## ADRs
 
 - **Charlie writes ADR content from ADR-0002 onward.** It's deliberate practice — the
@@ -203,12 +211,12 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 - [x] Relocate `ansible.cfg` to the repo root — it was sitting in `ansible/`, one level away
   from both the inventory it points to and the repo root everything else runs from, so
   `stdout_callback = yaml` was silently never taking effect. Fixed 2026-09-05.
-- [ ] Molecule tests — in progress (2026-09-06): driver/scenario shape agreed (one
-  holistic scenario, delegated KVM VM created/destroyed on the Beelink), KVM/libvirt
-  installed on the Beelink, dedicated Molecule venv set up (`requirements-molecule.txt`),
-  scenario scaffolded at `ansible/bootstrap/molecule/default/`. Still to write:
-  `create.yml`/`destroy.yml` (VM provisioning), the real seven-role `converge.yml`, and
-  `verify.yml` assertions. See journal 2026-09-06.
+- [ ] Molecule tests — in progress (2026-09-07): `create.yml`/`destroy.yml` done and
+  proven (full create → login → destroy → create → login cycle, including SSH bastion
+  routing to the VM via the Beelink — see README "Logging into the VM Molecule creates").
+  Still to write: the real seven-role `converge.yml` and `verify.yml` assertions, then a
+  first full `molecule test` run. See journal 2026-09-07 for the bugs found/fixed along
+  the way.
 - [ ] Repo on a real PR-with-CI flow — branch protection, `ansible-lint`/`yamllint` in
   GitHub Actions. Not started.
 

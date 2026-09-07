@@ -232,3 +232,78 @@ Format: **date — what was done · what broke · what was learned · next**
   Molecule's dynamic inventory picks up the new VM's connection details are all still open),
   then rewrite `converge.yml` to apply the real seven-role `bootstrap.yml` order, then
   `verify.yml` assertions, then a first `molecule converge` run.
+
+
+## 2026-09-07 — Molecule create.yml/destroy.yml: KVM VM provisioning, working end to end
+
+- **Done:** Wrote `create.yml`/`destroy.yml` for the KVM/libvirt scenario scaffolded
+  2026-09-06. `create.yml`: resolves the Beelink's address/user from the shared
+  `inventory/hosts.ini` (single source of truth, not restated), delegates the libvirt work
+  to the Beelink via `add_host` + `delegate_to`, builds a qcow2 overlay against a
+  once-downloaded Ubuntu 22.04 base image, generates a NoCloud cloud-init seed ISO reusing
+  the Beelink's own already-trusted SSH key (no new key material to manage), boots via
+  `virt-install`, polls libvirt's own DHCP leases for the new VM's address, waits for SSH,
+  and writes Molecule's instance record. `destroy.yml` mirrors the lookup/delegation setup,
+  tears the VM down tolerantly (`failed_when: false`, since Molecule runs destroy both
+  before create and after verify), and always resets the instance record to empty. Full
+  create → login → destroy → create → login cycle proven working, including a genuine
+  SSH bastion pattern (VM is only reachable from the Beelink's own `virbr0` network, never
+  directly) via `ansible_ssh_common_args: -o ProxyJump=...` on the instance record — Ansible
+  itself (and therefore future `converge`/`verify` runs) picks this up correctly through
+  normal inventory resolution.
+  Also fixed a real latent bug in the stub `molecule.yml`: `--inventory=/path/to/inventory.yml`
+  was a literal placeholder pointing nowhere and would have failed every `molecule` command;
+  removed, with a comment explaining why a *global* `--inventory` pointing at the real
+  Beelink would be actively dangerous once `converge.yml`/`verify.yml` (which run
+  `hosts: all` against the disposable VM) exist — it would merge the real Beelink into that
+  `all` and risk converging straight onto it.
+  Added a "Explaining terms" section to this file's working agreement (acronyms/jargon get
+  spelled out unprompted, same as commands). Updated README with venv/molecule invocation
+  steps and how to log into the VM manually (see below).
+- **Broke (several, all found and fixed live):**
+  1. `delegate_to: beelink_target` silently ran locally instead of over SSH — a play-level
+     `connection: local` (correct for the localhost-only parts of `create.yml`, copied from
+     Molecule's own scaffold convention) leaks into delegated tasks too unless the delegated
+     host's vars explicitly set `ansible_connection: ssh`. Real gotcha, not obvious from the
+     docs; cost the most debugging time.
+  2. Jinja's `regex_search()` returns a **list** whenever a capture group is requested, even
+     one group — `beelink_user` came back as `["ansible"]`. Fixed with a lookbehind
+     (`(?<=ansible_user=)\S+`) so it returns a plain string with no group needed.
+  3. Never created `/var/lib/libvirt/images/base/` — `get_url` doesn't create missing
+     destination directories, so the download failed at the final "move into place" step
+     (99 seconds in, i.e. after the actual download had already completed).
+  4. `vm_name` referenced `molecule_scenario_name`, which — unlike `molecule_instance_config`
+     — isn't actually injected into `create.yml`/`destroy.yml` by this Molecule version.
+     Switched to a fixed name (`molecule-bootstrap-test`); fine given only one instance is
+     ever needed.
+  5. `molecule.yml` never declared a `platforms:` section at all (missing from the original
+     `molecule init scenario` stub) — `molecule login`/`list` need it to know what instance
+     name to look for, even though `create.yml`'s own instance-config dump was correct
+     independently.
+  6. `identity_file: ""` (meant as "no explicit key, fall back to agent/default") produced a
+     *worse* failure than omitting the key: Molecule built a malformed SSH command
+     (`ssh -i -o ControlMaster=auto ...`, `-i` swallowing the next flag as a filename).
+     Needed the real path (`ssh -G ansible@192.168.1.130 | grep -i identityfile` against the
+     Beelink to confirm which default-list key was actually authorized), resolved via
+     Jinja's `expanduser` filter.
+  7. **`molecule login` doesn't read `ansible_ssh_common_args`** — it only recognises a
+     fixed set of instance-config fields (`instance`/`address`/`user`/`port`/`identity_file`)
+     and silently ignores anything else, so it kept trying to connect to the VM directly and
+     timing out even after the bastion routing was added and confirmed working via a manual
+     `ssh -i ... -o ProxyJump=... ansible@<address>`. This is a genuine limitation of
+     Molecule's convenience command, not a bug in our files — `converge`/`verify` will still
+     honour it correctly since they go through full Ansible inventory resolution, not
+     `login`'s narrower logic. Manual SSH (documented in the README now) is the correct way
+     to poke around the VM interactively for as long as this scenario needs a bastion hop.
+- **Learned:** A play-level `connection:` keyword can silently override host-level
+  `ansible_connection` for delegated tasks unless the delegated host's vars restate it
+  explicitly — worth remembering for any future `delegate_to` work. `ssh -G user@host` is a
+  clean way to see SSH's fully-resolved config (including which identity file it would
+  actually try) without connecting. `get_url` is genuinely idempotent via conditional
+  HTTP (`304 Not Modified`), not just "skip if file exists" — confirmed live on the second
+  `create` run. `virsh net-dhcp-leases` is a guest-agent-free way to discover a freshly
+  booted VM's address.
+- **Next:** `converge.yml` — apply the real seven-role `bootstrap.yml` order against the VM
+  (inherits the bastion routing "for free" via inventory resolution). Then `verify.yml`
+  assertions, then a first full `molecule test` run. Not started this session by choice —
+  good checkpoint after `create`/`destroy` rather than pushing straight on.

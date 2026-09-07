@@ -9,6 +9,15 @@ dependency:
     requirements-file: requirements.yml
 
 
+# The instance name(s) Molecule expects create.yml to produce. login/list
+# cross-check this against the instance-config file create.yml dumps — with
+# nothing declared here, Molecule has no name to look for, even though the
+# VM is genuinely running (this is what caused `molecule login` to report
+# "0 running hosts"). Kept in sync with vm_name in create.yml by hand, since
+# that file's logic isn't something Molecule can introspect.
+platforms:
+  - name: molecule-bootstrap-test
+
 ansible:
   cfg:
     defaults:
@@ -26,7 +35,27 @@ ansible:
       ansible_playbook:
         - --diff
         - --force-handlers
-        - --inventory=/path/to/inventory.yml
+        - --ask-become-pass
+        # --ask-become-pass: matches bootstrap.yml's own -K convention (see
+        # README) and ADR-0001's decision that the ansible account's sudo
+        # password is typed each run, never stored or vaulted. It prompts
+        # once per `molecule` command and applies to every become:true task
+        # in that run — including converge.yml's tasks against the VM
+        # itself later, even though that guest's own sudo is passwordless
+        # (set via cloud-init in create.yml), so the prompt there is just
+        # harmless, not wrong.
+        #
+        # No --inventory here deliberately: create.yml/destroy.yml resolve
+        # the Beelink's connection details themselves from the shared
+        # inventory/hosts.ini (see create.yml), rather than this being a
+        # global flag on every Molecule-run playbook. That matters because
+        # converge.yml/verify.yml run with `hosts: all` against the
+        # *disposable VM* Molecule creates — if a real inventory pointing at
+        # the actual Beelink were merged in globally here, `hosts: all`
+        # would match the real Beelink too and could converge straight onto
+        # it. (The stub-generated placeholder that was here,
+        # `--inventory=/path/to/inventory.yml`, pointed at a path that
+        # doesn't exist and would have failed every Molecule command.)
       ansible_navigator:
         - --mode stdout
         - --pull-policy missing
