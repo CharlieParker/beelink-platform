@@ -6,6 +6,21 @@ Used to test DevOps tools and techniques on a BeeLink mini‑PC.
 
 The bootstrap installs core tooling (Docker, kubectl, k3d, Terraform, Trivy, Checkov, AWS CLI, etc.) and verifies the installation at the end.
 
+### One-time setup: Galaxy collections
+
+Whichever Python environment you run `ansible-playbook` from needs this repo's
+Ansible Galaxy collections installed once:
+
+```bash
+ansible-galaxy collection install -r requirements.yml
+```
+
+This currently just installs `community.general`, which supplies the `yaml`
+stdout callback `ansible.cfg` selects (`stdout_callback = yaml`) — it isn't
+bundled in `ansible-core` itself. Skip this and `ansible-playbook` fails
+immediately with `Invalid callback for stdout specified: yaml`, before any
+tasks run. See `requirements.yml` for why the version is pinned where it is.
+
 Update `inventory/hosts.ini` with your BeeLink’s host and user, then run:
 ```bash
 ansible-playbook -i inventory/hosts.ini ansible/bootstrap/bootstrap.yml -K

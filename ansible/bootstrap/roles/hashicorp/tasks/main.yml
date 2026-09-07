@@ -2,12 +2,6 @@
 # Terraform and LocalStack. Grouped together because the prep doc's plan
 # (Rung 6 / Track A9) uses them together — Terraform against LocalStack for
 # the AWS-shaped bits (S3/IAM/ECR) — not because they're technically related.
-#
-# NOTE: localstack_version is not yet defined in bootstrap.yml's vars — this
-# role isn't wired into the play yet (not in the roles: list), pending a
-# confirmed current version (2026-09-05: couldn't get a reliable current
-# PyPI figure, asked Charlie to confirm from the box directly rather than
-# risk pinning to a stale/lower number and downgrading it).
 
 - name: Install Terraform {{ terraform_version }}
   unarchive:
@@ -30,19 +24,13 @@
     state: present
 
 - name: Verify LocalStack version matches the pin
-  # Deliberately NOT `localstack --version` — LocalStack 2026.5.0's own CLI
-  # fails to even import under this box's Python 3.10 (a SyntaxError in its
-  # bundled code from an f-string using nested double quotes, valid only
-  # from Python 3.12 onward — an upstream bug, not ours; found 2026-09-05).
-  # `pip3 show` reads install metadata directly without executing any of
-  # LocalStack's own code, so it sidesteps that entirely. Worth remembering
-  # this means the `localstack` CLI itself doesn't currently work on this
-  # box at all — a real blocker for Rung 6's actual LocalStack exercises,
-  # not just this check, and something to revisit then (newer Python, or an
-  # older/different LocalStack release).
-  command: pip3 show localstack
+  # Was `pip3 show localstack` instead of the real CLI — 2026.5.0's own CLI
+  # failed to even import under this box's Python 3.10 (a SyntaxError from
+  # a nested-quote f-string, valid only from Python 3.12+; upstream bug,
+  # not ours; found 2026-09-05). Fixed in 2026.5.1 (see Open Problem #5 in
+  # CLAUDE.md), so this now runs the real CLI again, which also doubles as
+  # confirmation the upstream fix actually landed on this box.
+  command: localstack --version
   register: localstack_verify
   changed_when: false
-  failed_when: >-
-    (localstack_verify.rc != 0) or
-    (('Version: ' ~ localstack_version) not in localstack_verify.stdout)
+  failed_when: (localstack_verify.rc != 0) or (localstack_version not in localstack_verify.stdout)

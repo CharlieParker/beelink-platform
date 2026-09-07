@@ -1,0 +1,21 @@
+---
+# Ansible Galaxy collections this repo depends on (as opposed to the Python
+# packages in requirements-molecule.txt). Install into whichever venv you
+# run ansible-playbook from:
+#   ansible-galaxy collection install -r requirements.yml
+
+collections:
+  - name: community.general
+    version: "8.6.6"  # last community.general 8.x release, the generation that
+                       # targeted ansible-core 2.16 (this repo's pinned
+                       # control-node version — see requirements-molecule.txt).
+                       # Ships the `yaml` stdout callback that ansible.cfg
+                       # selects (stdout_callback = yaml). Without it,
+                       # ansible-playbook fails immediately with "Invalid
+                       # callback for stdout specified: yaml" — it isn't
+                       # bundled in ansible-core itself. Confirmed 2026-09-07
+                       # via community.general's meta/runtime.yml
+                       # (requires_ansible: '>=2.13.0'). If ansible-core is
+                       # ever upgraded past 2.16, this needs bumping too —
+                       # community.general 13.x+ requires ansible-core
+                       # >=2.18, so 2.16.19 caps how far this pin can go.

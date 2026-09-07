@@ -11,21 +11,21 @@
     # trivy: intentionally NOT version-pinned here. It's installed via its own apt
     # repo (see the Trivy install tasks below), and a scanner benefits from tracking
     # latest signatures/checks rather than a stale pin. Decision recorded 2026-09-05.
-    k3s_version: "v1.36.3+k3s1"  # target for k3d cluster creation once that exists;
+    k3s_version: "v1.36.3+k3s1"   # target for k3d cluster creation once that exists;
                                   # paired with kubectl above to stay within the
                                   # supported one-minor-version client/server skew
-    helm_version: "v3.21.4"  # Helm 3, not 4 (v4 released Nov 2025) — real teams are
+    helm_version: "v3.21.4"   # Helm 3, not 4 (v4 released Nov 2025) — real teams are
                               # still overwhelmingly on v3; its security-fix window
                               # closes 2026-11-11, revisit this pin before then.
                               # Checked against github.com/helm/helm/releases 2026-09-05.
-    aws_cli_version: "2.36.4"  # no leading "v" — matches both the download URL and
+    aws_cli_version: "2.36.4"   # no leading "v" — matches both the download URL and
                                 # `aws --version` output. Checked against the aws-cli
                                 # v2 CHANGELOG.rst 2026-09-05.
-    localstack_version: "2026.5.0"  # confirmed via `pip3 show localstack` on the box
-                                      # itself 2026-09-05 (couldn't get a reliable
-                                      # current figure from PyPI's API remotely, so
-                                      # pinned to what's already installed and working
-                                      # rather than guess — see roles/hashicorp).
+    localstack_version: "2026.5.1"  # bumped 2026-09-07: 2026.5.0's own CLI throws a
+                                    # SyntaxError at import time on this box's Python
+                                    # 3.10 (nested-quote f-string, valid only from
+                                    # 3.12+) — fixed upstream in 2026.5.1, the very
+                                    # next release. See Open Problem #5 in CLAUDE.md.
     checkov_version: "3.2.529"  # same reasoning, confirmed via `pip3 show checkov`.
 
   # Refactored into roles 2026-09-05 (Rung 1). Only the final cross-cutting
@@ -63,6 +63,8 @@
             cmd: /usr/local/bin/helm version --short
           - name: aws
             cmd: aws --version
+          - name: localstack
+            cmd: localstack --version
       when: verify_cmds is defined
       block:
         - name: Run verification commands

@@ -167,16 +167,20 @@ named in all four of Digi2al's current engineering adverts. Weight proposals acc
    account, `cp`, which has `(ALL) NOPASSWD: ALL` — unrestricted passwordless root. Fine for
    a lab, exactly what a Secure by Design review would flag. Flagged as the first ADR topic:
    should the automation account get NOPASSWD sudo, and what compensates for it?
-5. **LocalStack's CLI doesn't run on this box's Python.** `localstack --version` (and every
-   other `localstack` subcommand) fails with a `SyntaxError` at import time in LocalStack
-   2026.5.0's own bundled code — an f-string with nested double quotes
-   (`f"...{A["runtime_version"]}..."`), valid only from Python 3.12 onward (PEP 701), but
-   this box runs 3.10. Found 2026-09-05 while fixing LocalStack's version pin (worked around
-   there by checking `pip3 show` instead of running the broken CLI). **Real blocker for Rung
-   6's actual LocalStack exercises** (Terraform against LocalStack) — needs either a newer
-   Python for LocalStack or a different/older LocalStack release, decide then. Worth a
-   GitHub issue upstream — if their package metadata doesn't declare
-   `python_requires >= 3.12`, pip will keep installing a release that can't run on 3.10/3.11.
+5. ~~LocalStack's CLI doesn't run on this box's Python.~~ **Resolved 2026-09-07.**
+   `localstack --version` (and every other `localstack` subcommand) failed with a
+   `SyntaxError` at import time in LocalStack 2026.5.0's own bundled code — an f-string with
+   nested double quotes (`f"...{A["runtime_version"]}..."`), valid only from Python 3.12
+   onward (PEP 701), but this box runs 3.10. Found 2026-09-05 while fixing LocalStack's
+   version pin (worked around there by checking `pip3 show` instead of running the broken
+   CLI). Confirmed already fixed upstream in 2026.5.1, the very next release — the
+   `localstack/localstack` GitHub repo was archived 2026-03-23 (read-only, no new issues),
+   so no upstream ticket was filed; the fix landing already made one moot. Bumped the pin in
+   `bootstrap.yml` from `2026.5.0` to `2026.5.1`, and switched the verify task in
+   `roles/hashicorp` back from `pip3 show localstack` to the real `localstack --version` —
+   also added it back into the top-level `verify_cmds` loop in `bootstrap.yml`. A clean run
+   of `localstack --version` is the confirmation that both the pin and the underlying CLI
+   bug are fixed.
 
 ### Rung 0 checklist
 
