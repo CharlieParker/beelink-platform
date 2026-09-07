@@ -558,3 +558,336 @@ ADR written at the moment of each real decision rather than retrofitted.
 - [Logiq — MOD Secure by Design guide](https://www.logiq.co.uk/insights/mod-secure-by-design/)
 - Local: `ignoreme/Digi2al - DNA - DevOps - Job Spec.pdf`, `inventory/LearningPlan.md`,
   `ansible/bootstrap/bootstrap.yml`
+
+---
+
+## 13. Research pass — Digi2al, DNA and Foundry (2026-09-07)
+
+**Why this section exists.** §5 asserts that Java and React are on the must-have list because
+"DNA ships Java back-ends and React front-ends", and flags Palantir Foundry as an aside worth
+an hour. Both claims were reasoning from the job spec plus one case study. This section is an
+attempt to test them against primary public sources — company hiring documents, public
+government code repositories, Palantir's own product documentation, and the MOD/Palantir
+contract record.
+
+**Confidence framing up front.** Everything below is inference from public material. Job
+adverts describe what an organisation wants to *buy*, not necessarily what it *runs*. Public
+repositories skew towards the things it is safe to open-source. **The job spec is a primary
+source about the actual team, and outranks everything here wherever they conflict.** This
+research should move emphasis, not overrule the spec.
+
+### 13.1 The honest ledger — what could not be found
+
+Stated first, so the rest is read in proportion:
+
+- **No public source states the Foundry-versus-bespoke ratio inside DNA.** Not in percentages,
+  not in headcount, not in application counts split by build method. Nobody publishes that.
+  Any confident number would be invented.
+- **Digi2al has no engineering blog and effectively no public code.** The GitHub organisation
+  `github.com/digi2al` holds a single forked repository (`coding-tests`), last touched
+  September 2016, no public members. No conference talks found.
+- **The historical DevOps Engineer advert could not be retrieved.** Search engines still index
+  `digi2al.com/careers/devops-engineer`, `/software-engineer` and `/junior-devops-engineer`,
+  but all three now return 404 — postings are served from Workable and expire. So the advert
+  Charlie was hired against could not be compared against its siblings.
+- **LinkedIn profiles are not retrievable without a login**, so no individual engineer's stack
+  could be verified.
+- **No public source names Java anywhere in the Royal Navy / Navy Digital estate**, beyond a
+  trivial `java-hello-world-with-maven` sample repo. Absence of evidence here is genuinely
+  weak evidence — but it is consistent across four independent places one would expect to
+  find it.
+
+### 13.2 Digi2al's current live vacancies — the most useful find
+
+Digi2al runs its hiring through Workable. Ten roles were live on 2026-09-07, all posted in
+August 2026. Notably, **there is no DevOps Engineer vacancy** — consistent with the role
+being filled. The engineering-shaped ones are worth reading in full; the highlights:
+
+**Software Engineer** (London, permanent, SC, SFIA 5) — for a *data fusion platform* bridging
+"tactical edge sensors in low-bandwidth environments and strategic HQs":
+
+- Python for microservices and APIs (FastAPI/Flask), TDD, async, OOP
+- Docker, multi-stage builds, minimal base images, **Kubernetes/K3s at the tactical edge**
+- **"Palantir Platform Integration: Building integrations against Palantir APIs/SDKs, custom
+  widgets/functions, and webhooks to extend core platform capabilities"**
+- DIL (Disconnected, Intermittent, Limited bandwidth) architectures, store-and-forward, offline sync
+- CI/CD packaging software into deployable Docker artifacts, MOD cyber security standards
+- **No Java. No React.**
+
+**Maritime Tech Director** (Portsmouth, £120k) — the technical director *for the DNA software
+house itself*. This is the single most relevant document found, because it is a description of
+the technical estate Charlie is joining, written by the people who run it:
+
+- *"sufficient technical depth to lead teams using technologies such as **Python, TypeScript,
+  React** and relational or non-relational database technologies"* — **Java is not named**
+- *"platform and delivery tooling such as **Docker, Kubernetes, GitHub Actions, Tekton** and
+  associated DevSecOps toolchains"*
+- *"enterprise and SaaS platforms ... including **Microsoft Power Platform and Palantir
+  Foundry**, with the ability to judge where platform use is appropriate and where bespoke
+  engineering or open approaches are preferable"*
+- An explicit remit to *"reduce strategic dependency on individual suppliers and platforms by
+  promoting open standards, modular design, interoperable interfaces, reusable components and
+  data portability"* and avoid *"unnecessary vendor lock-in"*
+- Also: technical debt, DevSecOps maturity, build/buy/configure/integrate/reuse/retire decisions
+
+**Solution Architect – Contractor** (Portsmouth, £650/day, SC, **department: DNA**):
+
+- *"Experience with Containerisation technologies such as **Kubernetes**"*
+- *"Understanding of modern Security principles; **Secure by Design, Zero Trust Architecture
+  and Software Defined Networks**"*
+- *"Familiarity with the **GDS lifecycle** and the requirements for passing a **Digital Service
+  Assessment**"*
+- *"Experience of Modern Application platforms; **MS Power Platform, Palantir Foundry or
+  equivalent**"*
+- *"Understanding of Cloud Architectures across **Azure, AWS** and other platforms"*
+
+**Security Platform Engineer** (London, £70k–£100k, **DV**) — worth noting because it is *not*
+Navy work at all: it is Digi2al staffing Google Public Sector's UK SecOps private cloud team.
+Requirements: Kubernetes security (workload isolation, RBAC, NetworkPolicies), Falco,
+Prometheus, Grafana, **Terraform, Helm, ArgoCD**, Python/Go/Bash, SIEM/IDS/CWPP, detection
+engineering, service mesh (Istio/Linkerd).
+
+**Director of Innovation and Engineering** (London, £100k) — reveals where the commercial bets
+are: solutions *"optimized for **Google Cloud Platform's Secret Community Cloud** platform,
+scaling internal **Microsoft (M365/Azure/Power Platform)** integrations, and developing joint
+partner propositions within the **emerging Palantir ecosystem framework**"*. Also names the
+TS4 commercial vehicle, uncrewed systems C2, multi-sensor data fusion and tactical edge.
+
+**Company boilerplate worth updating §2 with:** Digi2al now describes itself as *"an
+employee-owned defence-focused digital services consultancy ... vendor-agnostic UK Crown
+Commercial Services accredited supplier"* that has *"delivered over 120 cloud-hosted digital
+services across the public sector"*, spanning *"artificial intelligence, data science, **low
+code and complex code software engineering**, cyber security, cloud engineering, and
+user-centred design"*. Employee Ownership Trust from day one. Low-code and complex-code are
+deliberately named as **separate** service lines.
+
+### 13.3 The strongest single finding — the Royal Navy publishes its own React design system
+
+This is hard, primary, current evidence, and it settles the React question:
+
+- **`github.com/Royal-Navy/standards-toolkit`** — the Royal Navy Design System. A Lerna
+  monorepo: **React 18, TypeScript, styled-components, Storybook, Jest, ESLint/Prettier**,
+  ~6,800 commits. It publishes five public npm packages under `@royalnavy`:
+  `react-component-library`, `design-tokens`, `icon-library`, `fonts`, `eslint-config-react`.
+- **The guidance site is explicit**: *"The following 'view layer libraries' are currently
+  supported: **React**"* — React is the only supported view layer, and the guidance says it
+  *"will become part of the MOD Service Assessments in due time"*.
+- The design system's own learning-resources page tells Navy developers to learn **ES2015+,
+  React and Webpack**. There is also a `cra-template-royalnavy` package on npm.
+- **It is actively maintained.** `Royal-Navy/design-system` (TypeScript) last updated
+  **2 September 2026** — five days before this research.
+- The same organisation also holds `navy-data-platform-get-started-guide`,
+  `navy-digital-data-platform-api-mocking-tool`, and `ripsaw` (Python).
+
+For comparison, `github.com/defencedigital` (65 repos): `moduk-frontend` — the MOD.UK Design
+System — is **TypeScript**, updated **7 September 2026**; there is Python (SWAP processors,
+NiFi tooling), Go (`semver-generator`), Terraform (`terraform-aws-rds`), a fork of Red Hat's
+`red-hat-developer-hub-software-templates` (Backstage/RHDH scaffolding wired to **Tekton,
+ArgoCD, OpenShift, Helm**), and exactly one Java repository: `java-hello-world-with-maven`,
+last touched 2023.
+
+*Caveat on the RHDH repo:* it is a fork of Red Hat's upstream templates, so it evidences
+interest in an internal developer platform, not a choice of application language. But it does
+corroborate **Tekton** appearing in the Tech Director spec — that pairing points at
+OpenShift-flavoured CI somewhere in the estate, which is also the one thing on §5's
+nice-to-have list (RedHat OpenShift) that the prep doc dismissed as "optional reading".
+
+**One counter-data-point on MyNavy.** §3 and the Digi2al DNA case study both list MyNavy among
+delivered applications. The publicly documented build of MyNavy is **Umbraco** (an open-source
+.NET headless CMS) plus Ucommerce and Umbraco Forms, as a progressive web app with an API
+gateway and identity system, delivered by agency Great State, hosted on military servers in the
+UK. So even the flagship "Navy app" is neither Java/React nor Foundry. That is a vendor case
+study and the app has been iterated since, so treat it as one data point, not the whole story —
+but it does reinforce the general shape: **the DNA estate is heterogeneous, and no single stack
+describes it.**
+
+### 13.4 Foundry in the MOD — the contractual picture
+
+Well documented, and larger than §5's "aside" framing implies:
+
+- **December 2022:** MOD awards Palantir a **£75m Enterprise Agreement**, three years.
+- **May 2021:** Palantir and the Royal Navy extend contracts specifically — Foundry used for
+  workforce planning and strength modelling, supply chain and equipment inventory, equipment
+  health alerting, training/promotion modelling, and the COVID "Recognised People Picture"
+  built in under 48 hours. Palantir's own framing: Foundry empowers *"naval personnel, as well
+  as civilians and contractors, most without programming expertise"*.
+- **September 2024/2025:** Strategic Partnership Agreement — Palantir commits **£1.5bn** UK
+  investment, London designated European defence headquarters.
+- **December 2025 / effective 1 April 2026 – 31 March 2029:** a new enterprise agreement worth
+  **£240.6m**, awarded by **direct award** under the Procurement Act 2023 rather than
+  competitively.
+- **Hansard, 10 February 2026** — a Commons debate on exactly this. The MOD transparency notice
+  stated **only Palantir** could run the service and that switching would carry *"significant
+  cost"*. The minister acknowledged: *"We take vendor lock-in very seriously"*, committed to
+  regular contract review and to supporting British AI companies, and confirmed UK defence data
+  remains sovereign and resident in the UK.
+
+**Read this alongside the Maritime Tech Director advert.** The organisation is simultaneously
+(a) contractually deeper into Foundry than ever and (b) hiring a technical director whose
+written remit is to reduce platform dependency and judge *"where bespoke engineering or open
+approaches are preferable"*. That tension is live, unresolved, and is exactly the thing a new
+platform engineer should understand and have no ideological position on.
+
+### 13.5 The prep doc's low-code framing needs correcting
+
+§5 treats Foundry as "low-code" and pro-code as the separate Java/React world. Palantir's own
+documentation says it is a spectrum, and the pro-code end is substantial:
+
+| Foundry surface | Nature | Language |
+|---|---|---|
+| Ontology Manager | Configuration | none — objects, links, action types |
+| Pipeline Builder | Visual / low-code | none |
+| Workshop | *"no-code, object-oriented builder for operational applications"* | none (extensible) |
+| Custom Widgets | Hybrid — extends Workshop with custom front-end code | JS/TS |
+| Slate | Drag-and-drop builder with escape hatches | HTML/CSS/JavaScript |
+| Code Repositories | Code | pipelines and Functions |
+| Functions | Code | **Python or Java** |
+| Ontology SDK (OSDK) | Code — generates typed SDKs | **npm (TypeScript), pip/Conda (Python), Maven (Java)**, OpenAPI |
+| OSDK React apps | Code | *"completely customizable user interfaces using **React**"* |
+
+Palantir maintains `palantir/ontology-starter-react-app` as the official starter, and runs a
+*"Frontend & OSDK Developer"* training track. **React is Foundry's own documented pro-code
+front-end path.** Java appears as a Functions language and an OSDK target — not as a Spring
+Boot microservice tier.
+
+And the Digi2al Software Engineer advert describes precisely this pattern in the wild:
+integrations *"against Palantir APIs/SDKs, custom widgets/functions, and webhooks to extend
+core platform capabilities"*. So a large amount of the pro-code work in this estate is likely
+**around** Foundry rather than instead of it.
+
+On Kraken's 500+ applications, Digi2al's own case study says they were *"created
+collaboratively by both developers and non-technical users"* and describes Kraken as *"a
+mixture of users and developers"*. The citizen-developer signal is real. That does not make
+Kraken the whole estate — the DNA case study separately lists Navy Schedule Service, MyNavy,
+Navy Data Platform, First Look & Discoveries and TLSM, and describes a *"buy-before-build"*
+strategy *"emphasising low-code solutions, particularly Palantir Foundry, **alongside custom
+development**"*.
+
+**Answering §12's open question:** Palantir's free **Developer Tier is currently open, and the
+UK is one of the supported countries** (sign-up via `build.aip.com`). Hands-on Foundry is
+available at zero cost.
+
+### 13.6 The straight recommendation
+
+**React — keep it, and it is better justified than the spec alone suggested.** Three
+independent sources converge: it is the Royal Navy's only supported view layer in their own
+actively-maintained public design system; it is named in the DNA technical director's language
+list; and it is Foundry's own pro-code front-end path. Of everything on the must-have list,
+React is the item this research *strengthened*.
+
+**Java — downgrade, do not delete.** It is on the spec, which is a primary source about the
+actual team and is not overruled by absence elsewhere. But nothing public corroborates it: not
+the DNA tech director's language list (Python, TypeScript, React), not the current Software
+Engineer advert (Python), not the Navy's or Defence Digital's public repositories, not
+Foundry's dominant paths. The most plausible reconciliation is the one §5 already reached —
+*some* DNA back-ends are Java and a DevOps engineer must be able to build and pipeline them.
+That is a **build-and-containerise competence, not an application-development one**, and it
+does not need four to five days.
+
+What it does need, concretely: take an unfamiliar Maven or Gradle repository, understand its
+build, produce a sane multi-stage image (layered JAR, non-root, pinned base), size the JVM
+inside a container memory limit, cache dependencies properly in CI, and diagnose why the build
+is slow or the container is OOM-killed. One to one and a half days.
+
+**Python has a better public claim than Java, and is not on the spec at all.** It is the
+Software Engineer advert's primary language, a Foundry Functions and transforms language, the
+OSDK's second target, and the scripting language named in the Security Platform Engineer role
+alongside Go and Bash. Worth folding in — cheap, because he will write Python for tooling
+regardless.
+
+**Kubernetes / Helm / CI-CD / GitOps — unambiguously the best value, no change.** It is the
+only thing named in *all four* Digi2al engineering adverts: K8s/K3s at the tactical edge
+(Software Engineer), Kubernetes security with Helm and ArgoCD (Security Platform Engineer),
+containerisation (DNA Solution Architect), and Docker/Kubernetes/GitHub Actions/Tekton (Tech
+Director). Rungs 3 and 4 are where the time belongs.
+
+**Terraform — keep, but retarget away from AWS-specificity.** The cloud picture is contested.
+The spec says AWS and EKS; the DNA architect role says *"Azure, AWS and other platforms"* with
+Azure first; the innovation director role is optimising bids for **Google Cloud Secret
+Community Cloud** and Microsoft Azure/M365/Power Platform. Recommendation: keep Rung 6, but
+make it about state, modules, providers and drift — the `kubernetes` and `helm` providers, and
+LocalStack for the AWS shapes — rather than deep EKS study. This materially *reduces* the cost
+of the no-AWS-spend constraint in §10: the EKS gap matters less than it looked.
+
+**Foundry — read, plus one afternoon hands-on, but build nothing.** The Developer Tier is open
+and the UK is in scope, so the cost of going from reading to touching is an afternoon. The goal
+is vocabulary and one honest opinion: ontology as objects/links/actions, the Workshop vs Slate
+vs OSDK distinction, Functions, Pipeline Builder, and where the platform boundary sits. It
+makes him legible on day one and lets him ask the right week-one question — *"what's on
+Foundry, what's bespoke, and who decides?"* — knowing from the Tech Director advert that the
+organisation is actively asking it too.
+
+**Tekton — twenty minutes of reading, no build.** It is the one tool in the DNA technical
+director's list that appears nowhere on the ladder. Knowing it is Kubernetes-native,
+OpenShift-flavoured CI, and how it differs from GitHub Actions, is sufficient.
+
+### 13.7 Proposed changes to the ladder
+
+| Track | §11 as written | Proposed | Reason |
+|---|---|---|---|
+| Rung 2 — Java/React | 4–5 days | **2–3 days, re-cut** | React stays and grows; Java shrinks to build-and-pipeline |
+| Rungs 3–4 — K8s/Helm/CI/GitOps | 7–9 days | **unchanged, highest priority** | the only thing in all four Digi2al engineering adverts |
+| Rung 6 — Terraform | 3 days | **unchanged, retargeted** | provider-shaped, not EKS-shaped |
+| Foundry orientation | 1 hour reading | **1 hour reading + 1 afternoon on Developer Tier** | tier is open, UK in scope, zero cost |
+| Tekton | absent | **20 minutes reading** | named by the DNA tech director, nowhere on the ladder |
+
+**Re-cut of Rung 2, specifically:**
+
+- **Front end:** React + TypeScript, and consume **`@royalnavy/react-component-library`** from
+  npm. Building the demo UI against the Royal Navy's actual public design system is a
+  differentiating hour of work, and it is public, open-source and unclassified, so it does not
+  touch the vetting constraint in §10.
+- **Back end:** write the application itself in **Python/FastAPI** — it matches the current
+  Software Engineer advert, the Foundry Functions/transforms path, and the OSDK's second
+  target. Then, *separately*, **containerise and pipeline a Java application he did not
+  write**: clone a public Spring Boot sample and treat the Maven build, layered JAR, JVM
+  container flags and CI dependency caching as the exercise.
+
+That second half covers the Java must-have at exactly the depth §5 described — *"build,
+containerise, test and pipeline those stacks without needing hand-holding"* — and it is a
+truer simulation of a DevOps engineer's real relationship with a language they do not own than
+writing a toy Spring Boot app would be.
+
+### 13.8 Confidence, restated
+
+- Job adverts describe what an organisation wants to buy, not what it runs today.
+- The absence of Java in public material is weak evidence taken alone; it is only worth
+  anything because it is consistent across four places one would expect to find it.
+- The React finding is the strongest, because it rests on running, actively-maintained,
+  publicly-versioned code rather than on prose.
+- **Nothing here justifies dropping a spec must-have.** Java stays on the list. It moves from
+  "build an app" to "build someone else's app, well".
+
+### Sources (this section)
+
+- [Digi2al — careers](https://www.digi2al.com/careers) and the live Workable board:
+  [Digi2al Limited — current openings](https://apply.workable.com/digi2al-limited/)
+- [Digi2al — Software Engineer (data fusion platform)](https://apply.workable.com/digi2al-limited/j/742D2BE89D/)
+- [Digi2al — Maritime Tech Director (DNA software house)](https://apply.workable.com/digi2al-limited/j/05FDDDE72F/)
+- [Digi2al — Solution Architect, Contractor (dept: DNA)](https://apply.workable.com/digi2al-limited/j/CE55ADE98B/)
+- [Digi2al — Security Platform Engineer (Google Public Sector UK SecOps)](https://apply.workable.com/digi2al-limited/j/491A59E2DA/)
+- [Digi2al — Director of Innovation and Engineering](https://apply.workable.com/digi2al-limited/j/03D2EA687A/)
+- [Digi2al — DNA Software House case study](https://www.digi2al.com/case-studies/dna-software-house)
+- [Digi2al — Kraken case study](https://www.digi2al.com/case-studies/kraken)
+- [Digi2al — Navy Schedule Service case study](https://www.digi2al.com/case-studies/navy-schedule-service)
+- [github.com/digi2al](https://github.com/digi2al) — one forked repo, last active 2016
+- [Royal Navy Design System — standards-toolkit (GitHub)](https://github.com/Royal-Navy/standards-toolkit)
+- [Royal Navy Design System — development guidance](https://design-system.navy.digital.mod.uk/guidance/development)
+- [Royal Navy Design System — learning resources](https://design-system.navy.digital.mod.uk/guidance/learning-resources)
+- [github.com/Royal-Navy — repositories](https://github.com/orgs/Royal-Navy/repositories)
+- [github.com/defencedigital — repositories](https://github.com/orgs/defencedigital/repositories)
+- [cra-template-royalnavy on npm](https://www.npmjs.com/package/cra-template-royalnavy)
+- [Umbraco — MyNavy case study](https://umbraco.com/case-studies-testimonials/mynavy/)
+- [Palantir docs — App building overview](https://www.palantir.com/docs/foundry/app-building/overview)
+- [Palantir docs — Application reference](https://www.palantir.com/docs/foundry/getting-started/application-reference)
+- [Palantir docs — Ontology SDK overview](https://www.palantir.com/docs/foundry/ontology-sdk/overview)
+- [Palantir docs — OSDK React applications](https://www.palantir.com/docs/foundry/ontology-sdk-react-applications/overview)
+- [palantir/ontology-starter-react-app (GitHub)](https://github.com/palantir/ontology-starter-react-app)
+- [Palantir Learn — Frontend & OSDK Developer training track](https://learn.palantir.com/page/training-track-frontend-osdk-developer)
+- [Palantir Developer Community — Foundry developer accounts / Developer Tier availability](https://community.palantir.com/t/release-timeline-for-foundry-developer-accounts/2044)
+- [Palantir Technologies and the Royal Navy Extend Contracts (2021)](https://www.businesswire.com/news/home/20210506006341/en/Palantir-Technologies-and-the-Royal-Navy-Extend-Contracts)
+- [UK MOD awards Palantir £75m Enterprise Agreement (2022)](https://www.prnewswire.com/news-releases/uk-ministry-of-defence-awards-palantir-75-million-enterprise-agreement-301707783.html)
+- [UKAuthority — MoD continues data analytics contract with Palantir (£240.6m, 2026–2029)](https://www.ukauthority.com/articles/mod-continues-data-analytics-contract-with-palantir)
+- [Hansard — Ministry of Defence: Palantir Contracts, 10 February 2026](https://hansard.parliament.uk/Commons/2026-02-10/debates/FECED111-4FA8-4343-BFAF-18D6C13808D0/MinistryOfDefencePalantirContracts)
+- [Defence Digital blog — Navy Digital category](https://defencedigital.blog.gov.uk/category/navy-digital)
+- [Crown Commercial — Navy Digital Sustainment of Architecture Services (ND-SAS)](https://production-contractawardservice-ui.crowncommercial.gov.uk/digital-outcomes/opportunities/opportunity-details/project/64257)
