@@ -4,5 +4,5 @@ ignoreme/*
 .ansible/
 **/.ansible/
 
-# Python virtualenv for Molecule tooling (see README)
+# Python virtualenv for this repo's tooling — bootstrap, lint, Molecule (see README)
 .venv/
