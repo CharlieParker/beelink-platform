@@ -112,6 +112,23 @@ recurs in the same session unless he asks for a refresher.
 **Rung 1 — Make the existing work good: roles refactor + pinning complete 2026-09-05, Molecule and the PR/CI flow still open.** See the Rung 1 checklist below.
 See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 
+**Ladder re-cut 2026-09-07** after a research pass on Digi2al's live job adverts, the Royal
+Navy's public code and Palantir's own docs (prep doc §13, evidence and sources there). What
+changed, in one line each:
+
+- **Rung 2 shrank** from 4–5 days to 1–1.5 and became "something worth deploying" — FastAPI +
+  React/TypeScript against `@royalnavy/react-component-library`. It exists to unblock Rung 3.
+- **Rung 4b is new** — containerise and pipeline a Spring Boot app he did *not* write. That is
+  now where the Java must-have lives, because it is a build-and-image exercise, not app dev.
+- **Rung 6 retargeted** to provider-agnostic Terraform; AWS/EKS specifics demoted to a side
+  exercise (the wider estate is Azure/GCP as much as AWS).
+- **Rung 8's demo aims at the platform, not the app.**
+- **Added alongside:** an afternoon on Foundry's free Developer Tier (open, UK in scope), and
+  20 minutes reading on Tekton.
+
+**Kubernetes, Helm, CI/CD and GitOps (Rungs 3–4) are the centre of gravity** — the only things
+named in all four of Digi2al's current engineering adverts. Weight proposals accordingly.
+
 ### The Beelink, as surveyed 2026-09-04
 
 | | |

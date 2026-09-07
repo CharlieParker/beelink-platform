@@ -307,3 +307,45 @@ Format: **date — what was done · what broke · what was learned · next**
   (inherits the bastion routing "for free" via inventory resolution). Then `verify.yml`
   assertions, then a first full `molecule test` run. Not started this session by choice —
   good checkpoint after `create`/`destroy` rather than pushing straight on.
+
+## 2026-09-07 — Research pass on Digi2al/DNA/Foundry, and a ladder re-cut
+
+**Done.** Tested the prep doc's two load-bearing assumptions — "DNA ships Java back-ends and
+React front-ends", and "Foundry is a low-code aside worth an hour" — against primary public
+sources rather than the job spec alone. Written up as prep doc §13 with full citations, then
+folded into §1, §5, §8, §11 and §12.
+
+**What the evidence said.**
+
+- Digi2al's live Workable board (10 roles, Aug 2026) is the best source available. The
+  **Maritime Tech Director** advert is a technical director for the DNA software house itself
+  and names the estate's languages: *"Python, TypeScript, React"* — no Java. Tooling: Docker,
+  Kubernetes, GitHub Actions, **Tekton**. Their current **Software Engineer** role is
+  Python/FastAPI + K8s/K3s at the tactical edge + Palantir SDK/webhook integrations.
+- The **Royal Navy publishes its own React design system** (`Royal-Navy/standards-toolkit`:
+  React 18, TypeScript, styled-components, five `@royalnavy` npm packages), and its guidance
+  says React is the *only* supported view layer. Last updated 2 Sep 2026 — five days before
+  this research. Strongest single finding, and it rests on running code rather than prose.
+- Foundry is **not** low-code as a whole. It is a spectrum (Ontology Manager / Pipeline Builder
+  / Workshop → Slate / Code Repositories / Functions / OSDK), and **React is Foundry's own
+  documented pro-code front-end path**. Java appears only as a Functions language and an OSDK
+  Maven target.
+- **Kraken** = the Navy's Foundry-based low-code data capability, staffed by Digi2al, 500+ apps
+  built by developers *and* non-technical users. Key realisation: Foundry is a managed product,
+  so there is no cluster, chart, image or pipeline in it for a DevOps engineer. The larger
+  Kraken looms, the more DevOps work concentrates in the *non*-Foundry half of the estate.
+- MOD/Palantir contractually: £75m (2022) → **£240.6m direct award, Apr 2026–Mar 2029**, with a
+  Commons debate on vendor lock-in in Feb 2026 — while Digi2al hires a DNA tech director whose
+  written remit is to reduce platform dependency. That tension is live and unresolved.
+
+**What couldn't be found, stated plainly.** No public source gives the Foundry-vs-bespoke ratio
+inside DNA. Digi2al has no engineering blog and a dormant GitHub org (one fork, 2016). The
+archived DevOps advert 404s. LinkedIn needs a login. Absence of Java is weak evidence taken
+alone — it only counts because it's consistent across four places you'd expect to find it.
+
+**Learned.** Job adverts for *adjacent* roles at the same employer are a much better read on a
+technical estate than the advert you were hired against — they triangulate. And public
+government repos are an underused primary source.
+
+**Next.** Finish Rung 1 (Molecule `converge.yml`/`verify.yml`, then the PR-with-CI flow), then
+Rung 2 as re-cut. Java is no longer in the way of reaching a cluster.

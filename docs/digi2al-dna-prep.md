@@ -4,7 +4,7 @@
 looks like the highest-value use of the interim period before SC clearance lands.
 
 **Status:** research + proposal. Nothing here is committed to a schedule yet.
-Last updated: 2026-09-04 (rev 2 — constraints agreed, sequencing re-cut).
+Last updated: 2026-09-07 (rev 3 — research pass in §13; ladder re-cut, document consolidated).
 
 ---
 
@@ -19,10 +19,17 @@ Last updated: 2026-09-04 (rev 2 — constraints agreed, sequencing re-cut).
 - So the job is: **DevOps/platform engineering for a government software house**, in a
   hybrid cloud + secure/accredited context, alongside low-code (Foundry) and pro-code
   (Java/React) delivery teams.
-- The single highest-leverage thing to build is **one realistic vertical slice** — a
-  Java + React + Postgres + Keycloak app, containerised, Helm-packaged, GitOps-deployed to
-  k3s on the Beelink, with a GitHub Actions pipeline that has real security gates and real
-  observability behind it. That one artefact evidences ~80% of the "must have" list.
+- The single highest-leverage thing to build is **one realistic vertical slice** —
+  containerised, Helm-packaged, GitOps-deployed to k3s on the Beelink, with a GitHub Actions
+  pipeline that has real security gates and real observability behind it. That one artefact
+  evidences ~80% of the "must have" list.
+- **Revised 2026-09-07 (§13).** The slice's *platform* is the deliverable; the application is
+  the prop that travels through it. The app itself is now a thin FastAPI + React/TypeScript
+  pair rather than a Java build — React is strongly corroborated (it is the Royal Navy's only
+  supported view layer, and Foundry's own pro-code front-end path), Java is not corroborated
+  anywhere public and is covered instead by containerising a Spring Boot app you did not
+  write. Kubernetes, Helm, CI/CD and GitOps are the only things named in *all four* of
+  Digi2al's current engineering adverts, and are where the time belongs.
 - **EKS is the one must-have you can't practise**, given the decision to avoid AWS spend —
   §10 sets out how to cover the concepts anyway and how to talk about the gap honestly.
 - The second highest-leverage thing is **not technical**: fluency in *how government builds
@@ -169,19 +176,41 @@ Containerised services: **Postgres, Redis, Kafka, Keycloak, ELK** · RedHat **Op
 
 ### The two gaps most people would skip
 
-**Java and React are on the must-have list.** That's unusual for a DevOps spec, and it's
-there because DNA ships Java back-ends and React front-ends. You are not expected to be an
-application developer — you're expected to be able to *build, containerise, test and
-pipeline* those stacks without needing hand-holding: understand Maven/Gradle, JVM memory
-and container sizing, multi-stage builds, `npm ci` vs `npm install`, build caching, and how
-to make a sane image out of both. **Do not skip these.** A demo app you wrote yourself is
-worth more here than another Nginx deployment.
+*Revised 2026-09-07 after the research pass in §13 — that section holds the evidence and sources.*
 
-**Palantir Foundry.** Not in the spec, but it is the dominant technology in the DNA
-estate. You don't need to learn it — but knowing what Foundry is, what an ontology is, and
-where low-code fits vs pro-code will make you legible to your team on day one. Worth an
-hour of reading; check whether Palantir's free developer tier is currently open if you want
-hands-on.
+**React is the better-evidenced of the two, and it grew.** The Royal Navy publishes its own
+design system as public code — React 18, TypeScript, styled-components, five `@royalnavy` npm
+packages, still actively maintained — and its guidance states React is the *only* supported
+view layer. React is also Palantir Foundry's own documented pro-code front-end path: the
+Ontology SDK generates TypeScript bindings and Palantir maintain an official React starter.
+Two independent reasons to keep it, neither of which is the job spec.
+
+**Java is on the spec, but nothing public corroborates it.** The technical director advert for
+the DNA software house itself names *"Python, TypeScript, React"* — not Java. Digi2al's current
+Software Engineer advert is Python/FastAPI. Neither the Royal Navy's nor Defence Digital's
+public repositories show meaningful Java. **The spec is a primary source about your actual team
+and is not overruled by absence elsewhere**, so Java stays — but at exactly the depth this
+section already described: *build, containerise, test and pipeline*, not application
+development. Maven/Gradle, layered JARs, JVM memory inside a container limit, multi-stage
+builds, `npm ci` vs `npm install`, CI dependency caching. The practical form is **Rung 4b** —
+containerise and pipeline a Spring Boot app *you did not write*, which is a truer simulation of
+the job than writing a toy one.
+
+**Python has a stronger public claim than Java, and isn't on the spec at all** — primary
+language of Digi2al's live Software Engineer role, a Foundry Functions and transforms language,
+the Ontology SDK's second target, and named alongside Go and Bash in their Security Platform
+Engineer role. Cheap to fold in; you'll write it for tooling regardless.
+
+**Palantir Foundry.** Not in the spec, but it is the dominant technology in the DNA estate —
+via **Kraken**, the Navy's Foundry-based low-code data capability, which Digi2al staffs
+(§13.5). Two things follow. First, **Foundry is a managed product**: there is no cluster, chart,
+image or pipeline of yours inside it, so DevOps work concentrates in the *non*-Foundry half of
+the estate. The bigger Kraken looms, the more that is true. Second, you should still be fluent
+in it — ontology as objects, links and action types; Workshop vs Slate vs the Ontology SDK;
+Functions; Pipeline Builder — so you can ask the right question in week one: *what's on
+Foundry, what's bespoke, and who decides?* **Palantir's free Developer Tier is open and the UK
+is in scope** (sign-up via `build.aip.com`), so an hour of reading plus one afternoon hands-on
+costs nothing.
 
 ---
 
@@ -255,6 +284,13 @@ below rather than following it day by day.
 ---
 
 ## 8. Proposed shape: three tracks
+
+> **Superseded 2026-09-07.** The three-track split was the first attempt at sequencing;
+> §11's value-ordered ladder replaced it, and §13's research pass re-cut that ladder again.
+> Kept for reference because Track A's A1–A10 stage table is still a useful inventory of what
+> the vertical slice contains, and the Track B and C items still feed the ladder. **Where this
+> section and §11 disagree, §11 wins** — in particular A1's "Java, React" framing is superseded
+> by §5 and Rungs 2 and 4b.
 
 Rather than 30 sequential days, three parallel tracks with one shared artefact.
 
@@ -443,6 +479,10 @@ job spec PDF) and tracking `docs/`.
 **Status (updated 2026-09-05):** Rung 0 complete. Detailed checklist in
 `beelink-platform/CLAUDE.md`. Rung 1: roles refactor and version pinning complete 2026-09-05; Molecule and the PR/CI flow still open — see the Rung 1 checklist there.
 
+**Ladder re-cut 2026-09-07** on the evidence in §13: Rung 2 shrunk and re-scoped, Rung 4b added,
+Rung 6 retargeted, Rung 8's demo aimed at the platform, and two cheap items added to the
+"running alongside" list. Rungs 0, 1, 3, 5 and 7 are unchanged.
+
 Because the start date is unknown, work in rungs. **Each rung ends with something finished.**
 If clearance lands tomorrow, you stop and you've still gained something real.
 
@@ -462,13 +502,21 @@ protection, `ansible-lint` and `yamllint` in GitHub Actions).
 must-have you can most cheaply evidence, using code that already exists.
 **Why first:** highest value per hour of anything on this list.
 
-### Rung 2 — Close the Java/React gap (4–5 days)
+### Rung 2 — Something worth deploying (1–1.5 days)
 
-Spring Boot API + React front-end + Postgres. Thin but honest: a real domain, real endpoints,
-a DB migration, a few tests. Multi-stage Dockerfiles for both — non-root, pinned bases, small
-final images.
-**Leaves behind:** a public portfolio repo, and the two must-haves nobody else in your
-position bothers to close.
+*Re-cut 2026-09-07 — was "Close the Java/React gap", 4–5 days. See §13.6.*
+
+Thin but honest, and deliberately small: this rung exists to unblock Rung 3, not to impress
+anyone. A **FastAPI** back end (Python — matching Digi2al's live Software Engineer role) and a
+**React + TypeScript** front end built against **`@royalnavy/react-component-library`**, the
+Royal Navy's actual public design system. That library is open-source and unclassified, so it
+does not touch the vetting constraint in §10, and it is a genuinely differentiating hour.
+A real domain, real endpoints, a DB migration, a few tests. Multi-stage Dockerfiles for both —
+non-root, pinned bases, small final images.
+**Leaves behind:** a public portfolio repo, React evidenced against the Navy's own component
+library, and something real to run on a cluster.
+**Note:** the Java must-have is no longer here. It moved to **Rung 4b**, because containerising
+someone else's build is a pipeline exercise, not an app-building one.
 
 ### Rung 3 — Run it properly (4–5 days)
 
@@ -488,6 +536,20 @@ assurance-case evidence. That note is a differentiator.
 **Leaves behind:** CI/CD, security gates, GitOps — and the vocabulary to discuss them in MOD
 terms.
 
+### Rung 4b — Containerise a Java app you did not write (1 day)
+
+*Added 2026-09-07 — this is the Java must-have, relocated from Rung 2. See §13.6.*
+
+Clone a public Spring Boot sample. **Do not modify the application.** Understand its Maven (or
+Gradle) build, produce a sane multi-stage image — layered JAR, non-root, pinned base — size the
+JVM inside a container memory limit, cache dependencies properly in CI, and diagnose why the
+build is slow or why the container gets OOM-killed. Put it through the same Rung 4 gates as
+everything else.
+**Leaves behind:** the Java must-have evidenced exactly as §5 frames it — *build, containerise,
+test and pipeline* — on an unfamiliar codebase, which is the realistic version of the task.
+**Why here rather than Rung 2:** the pipeline already exists by this point, so the exercise
+stays about the build and the image rather than drifting into learning Java.
+
 ### Rung 5 — Observe it (3 days)
 
 kube-prometheus-stack, Loki, OpenTelemetry traces from the Java app. RED dashboards. Alerts
@@ -497,8 +559,17 @@ the dashboards.
 
 ### Rung 6 — Infrastructure as code, properly (3 days)
 
-Terraform: state, modules, LocalStack for the AWS shapes, `kubernetes`/`helm` providers for
-the cluster. Packer golden image with the Ansible role as provisioner — that's "immutable
+*Retargeted 2026-09-07 — see §13.6.*
+
+Terraform: state, modules, drift, and the `kubernetes`, `helm` and `docker` providers managing
+the real cluster. **The AWS-specific shapes are now the side exercise, not the spine.** The
+cloud picture across the wider estate is contested — your spec says AWS and EKS, the DNA
+solution architect advert says *"Azure, AWS and other platforms"*, and Digi2al's innovation
+director role is bidding on **Google Cloud's Secret Community Cloud** and Azure/M365/Power
+Platform. Provider-agnostic Terraform discipline transfers to all of those; deep EKS study
+transfers to one. Two useful consequences: it shrinks the §10 EKS gap, and it demotes
+LocalStack's Python 3.10 defect (CLAUDE.md open problem #5) from blocking the rung to blocking
+a side exercise. Packer golden image with the Ansible role as provisioner — "immutable
 infrastructure" demonstrated rather than claimed. Secrets via Vault or SOPS + age.
 **Leaves behind:** Terraform and the HashiCorp nice-to-haves.
 
@@ -515,21 +586,39 @@ above delivery, and one almost nobody has done.
 
 README, ADRs, runbooks, a 10-minute demo script from git push to running observed service.
 Terraform Associate exam if you want it.
+**Aim the demo at the platform, not the app** (added 2026-09-07). The spine of the ten minutes
+is the cluster, the chart, the pipeline gates and the GitOps commit; the application is the prop
+that travels through them. That is what all four of Digi2al's current engineering adverts
+actually ask for (§13.2), and it is the version you can still deliver confidently if someone
+interrupts to ask how any one stage works.
 **Leaves behind:** the thing you actually walk someone through in week one.
 
 ### Running alongside, in the gaps
 
 Reading (Secure by Design, GDS Service Standard, NCSC principles, the Navy Digital and Data
-Plan, the Scrum Guide, SFIA 4 descriptors), an hour on Palantir Foundry orientation, and an
-ADR written at the moment of each real decision rather than retrofitted.
+Plan, the Scrum Guide, SFIA 4 descriptors), and an ADR written at the moment of each real
+decision rather than retrofitted.
+
+**Revised 2026-09-07:**
+
+- **Foundry — one hour reading, plus one afternoon hands-on.** The free Developer Tier is open
+  and the UK is in scope (`build.aip.com`), so this is no longer reading-only. Goal is
+  vocabulary and one honest opinion about where the platform boundary sits — not a build, and
+  emphatically not a position for or against Foundry.
+- **Tekton — twenty minutes reading, no build.** Kubernetes-native, OpenShift-flavoured CI.
+  Named by the DNA technical director advert and appearing nowhere else on this ladder; knowing
+  how it differs from GitHub Actions is sufficient.
 
 ### If clearance lands early
+
+*Revised 2026-09-07 — Rung 2 shrinking by roughly three days pulls Kubernetes about a rung
+earlier at every tier.*
 
 | Time available | Do |
 |---|---|
 | ~1 week | Rungs 0–1 |
-| ~2 weeks | Rungs 0–2 |
-| ~4 weeks | Rungs 0–4, then jump to 8 |
+| ~2 weeks | Rungs 0–3 |
+| ~4 weeks | Rungs 0–4b, then jump to 8 |
 | ~6 weeks | Rungs 0–5, then 7 and 8 |
 | 8 weeks+ | The lot |
 
@@ -537,14 +626,22 @@ ADR written at the moment of each real decision rather than retrofitted.
 
 ## 12. Still open
 
-- **How much RAM does the Beelink have?** Decides how much of the stack runs concurrently.
-- **Ethernet available where it sits?** Wi-Fi is workable but will occasionally masquerade as
-  a Kubernetes problem.
-- Do you want the Terraform Associate / CKA spend, or keep this zero-cost?
+*Reviewed 2026-09-07 — three items closed.*
+
+- ~~How much RAM does the Beelink have?~~ **Closed 2026-09-04:** 13 GiB plus 4 GiB swap. See
+  the survey table in `beelink-platform/CLAUDE.md`.
+- ~~Ethernet available where it sits?~~ **Closed 2026-09-04:** no. `eno1` exists but is
+  unplugged and the router has no spare ports, so the box stays on Wi-Fi (`wlp3s0`). Worth
+  remembering when a cluster problem looks like a network problem.
+- ~~Is Palantir's free Foundry developer tier open?~~ **Closed 2026-09-07:** yes, and the UK is
+  a supported country (sign-up via `build.aip.com`). Folded into §11's "running alongside".
+- **Still open:** do you want the Terraform Associate / CKA spend, or keep this zero-cost?
 
 ---
 
-## Sources
+## Sources (§§1–12, gathered 2026-09-04)
+
+*§13 carries its own source list for the 2026-09-07 research pass.*
 
 - [Digi2al — home](https://www.digi2al.com/)
 - [Digi2al — services](https://www.digi2al.com/services)
@@ -822,6 +919,9 @@ director's list that appears nowhere on the ladder. Knowing it is Kubernetes-nat
 OpenShift-flavoured CI, and how it differs from GitHub Actions, is sufficient.
 
 ### 13.7 Proposed changes to the ladder
+
+> **Applied 2026-09-07.** These changes are now folded into §5 and §11 — that is the live plan.
+> The table below is kept as the record of what changed and why.
 
 | Track | §11 as written | Proposed | Reason |
 |---|---|---|---|
