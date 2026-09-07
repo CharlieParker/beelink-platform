@@ -185,3 +185,50 @@ Format: **date — what was done · what broke · what was learned · next**
 - **Next:** Molecule tests (proposal first — driver choice, what's actually being
   tested), then the PR/CI flow (branch protection, ansible-lint/yamllint in GitHub
   Actions). After that, Rung 2: the Java/React/Postgres vertical slice.
+
+## 2026-09-06 — Molecule setup: KVM/libvirt on the Beelink, venv + scenario scaffold
+
+- **Done:** Confirmed the Beelink supports hardware virtualization (AMD-V, all 8 cores
+  reporting `svm`) and installed `qemu-kvm`/`libvirt-daemon-system`/`libvirt-clients`/
+  `virtinst` there — `ansible` was already in the `libvirt` group, `libvirtd` active with
+  its default `virbr0` NAT network up. Settled the driver/scenario shape: one holistic
+  Molecule scenario converging all seven roles in the real `bootstrap.yml` order, against a
+  delegated KVM VM created and destroyed on the Beelink itself (not the laptop) — chosen
+  over LXD for maximal isolation (no shared-kernel/nested-Docker doubt for the `docker`/
+  `k8s_tools` roles) and over per-role scenarios for simplicity, both acceptable trade-offs
+  given this is meant as an infrequent PR-gate-style run rather than a fast inner loop.
+  Built a dedicated Python venv (`.venv`, gitignored) for Molecule tooling, kept deliberately
+  separate from the `ansible-core` used for everyday `bootstrap.yml` runs. Pinned
+  `molecule==26.8.0`, `molecule-plugins[docker]==26.7.15`, `ansible-core==2.16.19` — the
+  highest release satisfying both "Python 3.10 compatible" (this WSL venv's interpreter) and
+  molecule's own `!=2.17.*` constraint, found via two failed pin attempts (2.21.3, then
+  2.17.14) that each surfaced one of those constraints — and `ansible-lint==26.8.0`, added
+  after discovering the venv's `ansible-core` collided with the separately `~/.local`-
+  installed `ansible-lint`/2.17.14 whenever `.venv` was active (a CLI/importable-module
+  version mismatch caused by `ansible-lint` reaching across environments via `PATH`; fixed
+  by giving the venv its own matching `ansible-lint` instead). `requirements-molecule.txt`
+  records the pins; README updated with venv setup instructions.
+  Scaffolded the scenario: `molecule init scenario` (note: `--driver-name` has been removed
+  from this Molecule release's CLI — it now always scaffolds the core `default` driver, the
+  modern name for the old "delegated" driver, with no extra collection dependency) generated
+  `ansible/bootstrap/molecule/default/` (`molecule.yml`, `converge.yml`, `create.yml`,
+  `destroy.yml`, `verify.yml`) — still generic stub content, not yet written for the
+  Beelink/KVM target.
+- **Broke:** Nothing on the Beelink. Working-copy confusion on the laptop side: `~/dev/DNA`
+  in WSL turned out to be a symlink into `/mnt/c/Users/mrpar/dev/Digi2alDNAPractice` (the
+  Windows-mounted path Cowork sees), not a separate native-ext4 clone — so there's only ever
+  been one copy of the repo, but everything on it (including this pip install) pays the
+  WSL↔Windows filesystem-crossing tax. Left as-is for now; pointing the connected folder at
+  a `\\wsl.localhost\...` UNC path instead would fix this properly but wasn't done this
+  session.
+- **Learned:** pip's resolver fully resolves before writing anything to disk, so a failed
+  `pip install` (version-not-found or ResolutionImpossible) leaves no partial/conflicting
+  state behind — safe to just retry with corrected pins. Large multi-file packages
+  (`ansible-core` especially, also `pygments`) make the `/mnt/c` filesystem-crossing cost
+  most visible, since it's dominated by many-small-file I/O rather than raw bytes
+  transferred.
+- **Next:** Write `create.yml`/`destroy.yml` to provision and tear down a KVM VM on the
+  Beelink via `virt-install`/`virsh` (base image, unattended provisioning method, and how
+  Molecule's dynamic inventory picks up the new VM's connection details are all still open),
+  then rewrite `converge.yml` to apply the real seven-role `bootstrap.yml` order, then
+  `verify.yml` assertions, then a first `molecule converge` run.

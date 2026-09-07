@@ -203,8 +203,12 @@ See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 - [x] Relocate `ansible.cfg` to the repo root — it was sitting in `ansible/`, one level away
   from both the inventory it points to and the repo root everything else runs from, so
   `stdout_callback = yaml` was silently never taking effect. Fixed 2026-09-05.
-- [ ] Molecule tests — not started. Proposal first (driver choice, scenario shape) before
-  writing any.
+- [ ] Molecule tests — in progress (2026-09-06): driver/scenario shape agreed (one
+  holistic scenario, delegated KVM VM created/destroyed on the Beelink), KVM/libvirt
+  installed on the Beelink, dedicated Molecule venv set up (`requirements-molecule.txt`),
+  scenario scaffolded at `ansible/bootstrap/molecule/default/`. Still to write:
+  `create.yml`/`destroy.yml` (VM provisioning), the real seven-role `converge.yml`, and
+  `verify.yml` assertions. See journal 2026-09-06.
 - [ ] Repo on a real PR-with-CI flow — branch protection, `ansible-lint`/`yamllint` in
   GitHub Actions. Not started.
 
