@@ -379,3 +379,62 @@ release exists," which is a broader signal than "a CVE was fixed."
 `templates/deployment.yaml` (probes against podinfo's `/healthz`/`/readyz`, resource
 limits) and `templates/service.yaml`, then a first real `helm install` and port-forward.
 Full detail in `plat-eng-lab/docs/next-up.md`.
+
+## 2026-09-08 — Deploy key + clone, then a raw-manifest/kubectl detour before Helm
+
+**Done.** Set up the Beelink side of the git workflow `next-up.md` called for: generated a
+dedicated `ed25519` keypair as `ansible` (`plat_eng_lab_deploy`, no passphrase — scoped
+read-only by GitHub's deploy-key mechanism, so the usual passphrase trade-off doesn't
+apply), added it as a read-only deploy key on `plat-eng-lab`, and cloned the repo into
+`ansible`'s home via an SSH config `Host` alias. Laptop → `git push` → Beelink `git pull`
+loop confirmed working end to end. Also set up an `ssh beelink` config alias
+(`RemoteCommand`) that drops straight into `~/plat-eng-lab` on connect, replacing manual
+`cd` after every login.
+
+Deliberately pulled forward *before* writing the Helm chart's templates: hand-wrote a raw
+(non-Helm) `Deployment`/`Service` pair for podinfo in the repo's new `exercises/`
+directory, same pinned image digest as `charts/podinfo/values.yaml`, applied it, and
+walked through `kubectl get/describe/logs -l app=podinfo-raw`, `--watch`, and
+`--show-labels` against it — genuine kubectl fluency-building rather than jumping straight
+to templating something never manually deployed and debugged first.
+
+**What was covered, conceptually.** CPU terminology end to end — socket vs core vs
+logical CPU/thread, SMT as a per-core hardware feature (not an x86-wide guarantee), and
+confirmed the Beelink's real topology (`lscpu`/`nproc`: 1 socket, 4 cores, 8 threads) against
+why `kubectl describe node` reports `cpu: 8` per k3d node — with the k3d-specific wrinkle
+that all three "nodes" are Docker containers sharing that same one physical machine's 8
+threads, not 24 real logical CPUs. Resource `requests` vs `limits` semantics and the actual
+mechanism behind each (scheduler reservation vs enforced ceiling; CPU throttles, memory
+OOMKills) and why the permissive Kubernetes default (unset = unbounded) is a real
+noisy-neighbour trap rather than a theoretical one. The Deployment → ReplicaSet → Pod
+label/selector mechanics in detail — three places `app: podinfo-raw` appears in the
+Deployment YAML, only one relationship (`selector.matchLabels` vs
+`template.metadata.labels`) is actually validated/enforced, the rest is convention. Then
+generalised outward: the "each layer adds one capability" pattern via Job/CronJob
+(run-to-completion + retries, then scheduling, with Job managing Pods directly rather than
+through a ReplicaSet-equivalent, since Pod success is the goal rather than something to
+replace); StatefulSet vs Deployment (why multi-instance stateful workloads need per-replica
+identity, storage, and addressing that a Deployment's interchangeable Pods can't provide);
+Role/RoleBinding vs ClusterRole/ClusterRoleBinding (namespace vs cluster scope, plus
+RoleBindings-referencing-ClusterRoles as the pattern behind Kubernetes' built-in
+`view`/`edit`/`admin` roles); and how to recognise a CRD in the wild (`kubectl get crds`,
+and the reverse-DNS-style `apiVersion` group naming convention vendor CRDs use).
+
+**What broke.** Nothing — the deploy-key clone worked first attempt (SSH's
+trust-on-first-use prompt for `github.com`'s host key is expected, not an error), and the
+k3d cluster was still fully healthy after 13h+ uptime with no drift.
+
+**Learned.** The "add one capability per layer, delegate the rest" shape recurs
+deliberately across Kubernetes' controller family (Pod → ReplicaSet → Deployment; Pod → Job
+→ CronJob) rather than being a Deployment-specific quirk — worth watching for the same
+shape elsewhere. k3d containers each report the *host's* full CPU count independently
+rather than a divided share of it — an easy number to misread as real per-node capacity on
+a k3d lab cluster specifically, unlike a genuine multi-machine cluster.
+
+**Next.** Tear down `exercises/podinfo-raw/`, then write
+`charts/podinfo/templates/deployment.yaml` and `templates/service.yaml`, now directly
+informed by the raw version already proven to work — parameterise from
+`values.yaml` rather than hardcoding. `helm install`, then the same verification loop
+(`get pods`, `describe`, `logs`, port-forward) against the real chart. Check podinfo's
+actual version via its `/version` endpoint once running and fix `Chart.yaml`'s placeholder
+`appVersion`. `--tls-san` remote kubeconfig access still open, still not urgent.
