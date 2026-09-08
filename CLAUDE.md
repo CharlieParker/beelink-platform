@@ -129,6 +129,10 @@ changed, in one line each:
 **Kubernetes, Helm, CI/CD and GitOps (Rungs 3–4) are the centre of gravity** — the only things
 named in all four of Digi2al's current engineering adverts. Weight proposals accordingly.
 
+**Kubernetes/Helm practice started 2026-09-07 in sibling repo `plat-eng-lab`** (pulled
+forward ahead of Rung 2/3, per §13's reweighting) — see the journal entry for that date and
+`plat-eng-lab/docs/next-up.md` for where it currently stands.
+
 ### The Beelink, as surveyed 2026-09-04
 
 | | |

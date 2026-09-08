@@ -349,3 +349,33 @@ government repos are an underused primary source.
 
 **Next.** Finish Rung 1 (Molecule `converge.yml`/`verify.yml`, then the PR-with-CI flow), then
 Rung 2 as re-cut. Java is no longer in the way of reaching a cluster.
+
+## 2026-09-07 (evening) — First hands-on Kubernetes/Helm session, new repo `plat-eng-lab`
+
+**Done.** Acted on the §13 research pass by pulling Kubernetes/Helm practice forward ahead
+of Rung 2/3, using a stand-in public app rather than waiting for the real one — same logic
+as Rung 4b's "containerise something you didn't write." New private sibling repo
+`plat-eng-lab` created for this track, kept separate from `beelink-platform` (which stays
+the Ansible/host repo). Stood up a k3d cluster on the Beelink (`plat-eng-lab`, 1 server + 2
+agents), pulled `ghcr.io/stefanprodan/podinfo:latest`, resolved and pinned its digest, and
+ran a first Trivy scan (40 findings, 0 CRITICAL, 2 HIGH — both OpenSSL, fixes available).
+Hand-wrote (not `helm create`-scaffolded, deliberately) `charts/podinfo/Chart.yaml` and
+`values.yaml`, pinned to that digest.
+
+**What broke / open threads.** k3d's kubeconfig points at `0.0.0.0`/loopback and its API
+server cert's SAN list doesn't include the Beelink's LAN IP — confirmed via `openssl
+s_client`, so laptop-side kubectl/helm needs the cluster recreated with `--tls-san` first.
+Working via SSH into the Beelink for now. `plat-eng-lab` also isn't cloned onto the Beelink
+yet — needs a read-only GitHub deploy key for `ansible` before `helm install` can run from
+a real checkout there.
+
+**Learned.** A Docker digest pin is genuinely inert against a moving `:latest` tag — no
+reconciliation, no failure mode, just a frozen reference until someone manually re-checks
+and re-pins. That's the gap tools like Renovate/Dependabot exist to close (the same idea
+`roles/updates` already covers for the Ansible-managed tooling stack) — surfacing "a newer
+release exists," which is a broader signal than "a CVE was fixed."
+
+**Next.** Set up the Beelink deploy key and clone `plat-eng-lab` there. Write
+`templates/deployment.yaml` (probes against podinfo's `/healthz`/`/readyz`, resource
+limits) and `templates/service.yaml`, then a first real `helm install` and port-forward.
+Full detail in `plat-eng-lab/docs/next-up.md`.
