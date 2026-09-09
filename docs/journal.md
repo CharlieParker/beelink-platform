@@ -438,3 +438,40 @@ informed by the raw version already proven to work — parameterise from
 (`get pods`, `describe`, `logs`, port-forward) against the real chart. Check podinfo's
 actual version via its `/version` endpoint once running and fix `Chart.yaml`'s placeholder
 `appVersion`. `--tls-san` remote kubeconfig access still open, still not urgent.
+
+## 2026-09-09 — podinfo Helm chart finished, TLS/PKI detour, pivot to Argo CD next
+
+**Done.** Tore down `exercises/podinfo-raw/`. Finished `charts/podinfo/templates/deployment.yaml`
+and `service.yaml`, parameterising image (repository+digest), replica count, container port,
+probe paths, and resource requests/limits from `values.yaml`. Debugged two real templating
+bugs along the way — a bare `service.port` missing its `.Values.` prefix, and an image line
+that initially wasn't templated at all — rendered clean with `helm template --debug`, then
+`helm install`'d it (revision 1) and verified via `kubectl get pods`, `logs`, and a
+port-forwarded `curl .../version` (6.15.0, matching the log's own report), fixing
+`Chart.yaml`'s placeholder `appVersion` to match. Tested `helm upgrade --install` (revision 2)
+against that appVersion-only change — no Pod restart, exactly as expected, since `appVersion`
+is chart metadata only and isn't wired into any template here. Uninstalled the `podinfo`
+release afterward, ahead of handing it to Argo CD.
+
+**What broke, and was fixed.** A git-workflow slip: edited files with `vim` directly on the
+Beelink mid-debugging instead of on the laptop (the actual source of truth), diverging the
+two copies. Caught it, used `git checkout -- <file>` to discard the scratch edit and restore
+the clean, already-pushed version rather than hand-reconciling. Confirmed `helm install` is
+not idempotent (fails re-running against an existing release name); `helm upgrade --install`
+is the idempotent equivalent, and is the one to reach for going forward.
+
+**Learned, conceptually.** A long detour into TLS/PKI, kicked off by the earlier-logged SAN gap
+on the k3d cluster's API server cert: asymmetric key pairs, CAs and trust chains, the
+handshake, SAN vs. the deprecated single-CN field, PEM as a text encoding of DER/ASN.1 binary
+data, leaf vs. CA certs, IANA's role, and CIDR notation via the `127.0.0.0/8` loopback
+reservation's Class-A origin. Decided explicitly *not* to recreate the k3d cluster today for
+the `--tls-san` fix — real, but a different lesson from today's, logged as its own future
+exercise. Also worked through Helm vs. GitOps vs. Argo CD as three separate concerns
+(packaging/templating vs. operating philosophy vs. concrete tool) — including that an Argo CD
+`Application` is itself a CRD, a declarative sync pointer rather than a running workload,
+tying directly back to the CRD-recognition material from 2026-09-08.
+
+**Next.** Deploy Argo CD's server components into the cluster (the CLI's pinned from Rung 1,
+but the controller itself isn't running yet), reach its UI via a LAN-bound port-forward, and
+hand-create a single Argo CD `Application` pointed at `charts/podinfo` — deliberately skipping
+"app of apps" for now, since it solves a many-applications problem this lab doesn't have yet.
