@@ -1,5 +1,67 @@
 # Session journal
 
+## 2026-09-10 — Argo CD installed, hand-created Application, sync + self-heal proven
+
+**Done.** Installed Argo CD via its official manifest (`kubectl apply --server-side -n argocd
+-f .../install.yaml`); confirmed all seven Pods `1/1 Running`. Reached the UI/API through
+`kubectl port-forward svc/argocd-server 8080:443 --address 0.0.0.0` and logged in as `admin`
+using the auto-generated initial-admin Secret. Registered `plat-eng-lab` with Argo CD
+(`argocd repo add`, reusing the existing `plat_eng_lab_deploy` deploy key, the real
+`git@github.com:...` URL rather than the local SSH-config alias). Hand-wrote and committed a
+single `Application` manifest (`argocd/podinfo-application.yaml`) pointing at `charts/podinfo`,
+`default` namespace, in-cluster destination — deliberately not app-of-apps. First sync run
+manually (`argocd app sync podinfo`); confirmed `Synced`/`Healthy` in both CLI and UI. Then
+enabled `syncPolicy.automated.selfHeal: true`, committed, re-applied, and proved self-heal
+live: `kubectl scale --replicas=5` by hand was detected and reverted automatically within
+seconds, watched via `kubectl get pods -w`. README updated with the install/port-forward/
+password steps. Also plugged the Beelink into the new switch's Ethernet port (`eno1`) —
+interface currently `state DOWN`, not yet cabled/tested end-to-end; still on Wi-Fi
+(`192.168.1.130`) for now.
+
+**Broke, and fixed.**
+- `kubectl apply` (client-side) against Argo CD's official install manifest failed on one CRD:
+  `The CustomResourceDefinition "applicationsets.argoproj.io" is invalid: metadata.annotations:
+  Too long: may not be more than 262144 bytes`. Cause: client-side apply stashes a full copy of
+  the applied object in the `kubectl.kubernetes.io/last-applied-configuration` annotation for
+  future three-way diffs; that CRD's OpenAPI schema is large enough that the *stashed copy*
+  trips Kubernetes' 256 KiB annotation-value ceiling even though the live object itself is
+  fine. A known, fairly common gotcha with large-CRD manifests generally, not specific to this
+  cluster. Fixed by re-running the identical command with `--server-side` (tracks field
+  ownership on the API server itself, never writes that annotation).
+- Re-running `--server-side` after the earlier partial client-side apply produced three benign
+  field-ownership conflicts (a Pod env var, two empty `ingress` specs) against the
+  `kubectl-client-side-apply` manager from the first attempt — not a real disagreement in
+  value, just SSA declining to silently steal fields from another manager. Left unresolved
+  (`--force-conflicts` not needed) since nothing was actually contested.
+- Nearly registered the repo with Argo CD using the SSH-config alias
+  (`git@github-plat-eng-lab:...`) instead of the real hostname — caught before running it.
+  Argo CD's `repo-server` doesn't read `~/.ssh/config` the way the local `git`/`ssh` CLI does;
+  used `git@github.com:...` with `--ssh-private-key-path` explicitly instead.
+
+**Learned.**
+- Server-side apply solves problems client-side apply's local-annotation approach structurally
+  can't — no size ceiling, explicit multi-manager field ownership instead of last-write-wins.
+- An SSH config `Host` alias is a convenience for the *local* `ssh`/`git` client only; any other
+  client authenticating to the same remote (Argo CD's repo-server included) needs the real
+  hostname and its own explicit credential.
+- Argo CD's self-heal reacts to live drift via a persistent Kubernetes watch on managed
+  resources, not periodic polling — correction happened within seconds of the manual
+  `kubectl scale`. Its git-polling interval (checking for new commits) is a separate,
+  slower-by-default mechanism (~3 min) from this.
+- `argocd`'s CLI login is a separate auth/context layer from `kubectl`'s — it authenticates
+  against an Argo CD *server* URL, not a kubeconfig context. `argocd context` lists/switches
+  between previously-logged-in Argo CD servers, independent of `kubectl config get-contexts`.
+- Editing the `Application` object itself (e.g. its `syncPolicy`) is **not** something Argo CD
+  auto-applies from git the way it auto-applies changes to the chart it points at — that
+  self-management only happens under the app-of-apps pattern, deliberately not in use here.
+  Every future change to `argocd/podinfo-application.yaml` needs its own manual `kubectl apply`.
+
+**Next.** Rollback the GitOps way: break `podinfo` via a bad commit rather than a live
+`kubectl` edit, then fix it with `git revert` + resync (Argo CD's own sync history, not `helm
+rollback`/`helm history`, is now what matters). After that: the Ethernet/switch move is still
+open — confirm the new IP once cabled, update `hosts.ini`, and revisit the `--tls-san`
+remote-kubeconfig item now that the address may finally stabilize.
+
 ## 2026-09-05 — Rung 0: patching, pin bump, and a real idempotency bug
 
 - **Done:** `apt full-upgrade` + reboot (kernel 5.15.0-181 → 191). Descoped the DHCP
