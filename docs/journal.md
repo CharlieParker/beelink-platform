@@ -1,5 +1,30 @@
 # Session journal
 
+## 2026-09-11 — Rollback drilled twice: InvalidImageName and ImagePullBackOff
+
+**Done.** Ran the git-revert rollback exercise from `next-up.md`, twice, deliberately hitting
+two different failure modes for contrast: a mangled digest (`...oops` appended) produced
+`InvalidImageName` — Kubernetes' format validation rejecting a malformed reference before
+attempting any pull; a valid-but-wrong digest (single hex character swapped) produced the
+`ImagePullBackOff` originally expected — a well-formed reference that fails to actually
+resolve. Both fixed identically: `git revert HEAD --no-edit` + push + `argocd app sync`.
+Confirmed via `argocd app history podinfo` that Argo CD tracks its own sync history per git
+revision, independent of Helm's.
+
+**Learned.** The original working Pod was never replaced through either break/fix cycle —
+its age stayed continuous throughout. Deployments only shift traffic to a new ReplicaSet once
+its Pods pass readiness, so a broken image never actually caused an outage, only a failed
+Pod sitting alongside the still-serving old one; reverting to an identical prior template
+resolves to the *same* ReplicaSet rather than creating a new Pod, which is why nothing
+restarted. Automated sync overlapping a manual `argocd app sync` can log two history entries
+for the same revision seconds apart — harmless. `kubectl port-forward`'s "broken pipe"/
+"connection reset by peer" messages are just clients disconnecting mid-stream (browser tab
+refreshes, short CLI calls) — the tunnel itself keeps running.
+
+**Next.** Resequencing agreed: Rung 1 leftovers (PR/CI flow) → Rung 4b (Java container) →
+Rung 4's CI/security pipeline → Rung 5 (observability) → Rung 7 (hardening) → Rung 2/3 (the
+real FastAPI/React slice) → Rung 6 (Terraform) interleaved → Rung 8 throughout.
+
 ## 2026-09-10 — Argo CD installed, hand-created Application, sync + self-heal proven
 
 **Done.** Installed Argo CD via its official manifest (`kubectl apply --server-side -n argocd
