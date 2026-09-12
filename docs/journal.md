@@ -20,9 +20,31 @@ check tasks always reporting `changed`), plus a handful of trivial yamllint form
 issues (trailing whitespace, comment indentation, line length). Decided to fix rather than
 skip-list — both are genuine idempotency/naming-hygiene practice, not lab shortcuts.
 
-**Next.** Work through the `var-naming` and `no-changed-when` findings role by role, then
-add the actual GitHub Actions workflow and branch protection (Rung 1's PR-with-CI-flow
-item) once the repo lints clean.
+**Also today.** Set up `gh` (GitHub CLI) authenticated via SSH, and ran the full
+branch → PR → squash-merge → branch-delete loop for real for the first time
+(`chore/consolidate-ansible-lint-config`) — confirmed `gh pr merge --delete-branch`
+handles the local re-sync itself (fast-forwards `main`, deletes both branch copies),
+so no manual `checkout main && pull` is needed afterward.
+
+**Next.**
+- Fix `var-naming[no-role-prefix]` findings (32, across all seven roles) — one
+  role per branch/PR: `cli_tools`, `docker`, `hashicorp`, `k8s_tools`,
+  `security_tools`, `updates`
+- Fix the 5 `no-changed-when` findings (`cli_tools`, `docker`)
+- Try `ansible-lint --fix .` first and diff-review before doing any by hand
+- Clean up trivial yamllint formatting findings (trailing whitespace, comment
+  indentation, a few over-length lines) alongside whichever PR touches that file
+- Re-run `ansible-lint .` (from `ansible/bootstrap/`) and `yamllint ansible/
+  inventory/` until both are clean
+- Write the GitHub Actions workflow: trigger `on: pull_request`, install pinned
+  versions via `pip install -r requirements.txt`, run both linters from the
+  correct directories per the README
+- Open a PR with the workflow itself; confirm the check appears and passes
+- Turn on branch protection for `main`: require a PR before merging, require
+  that status check, leave "require approvals" off (solo repo, self-approval
+  isn't possible), tick "no force pushes" and "no branch deletions"
+- Then resume the 09-11 resequencing: Rung 4b (containerise the Spring Boot
+  sample) next, then Rung 4's full pipeline
 
 ## 2026-09-11 — Rollback drilled twice: InvalidImageName and ImagePullBackOff
 
