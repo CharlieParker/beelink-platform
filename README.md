@@ -71,3 +71,17 @@ cat ~/.ansible/tmp/molecule.*/instance_config.yml
 # SSH in via the Beelink as a bastion (-o ProxyJump). Swap in the address from above.
 ssh -i ~/.ssh/id_ed25519 -o ProxyJump=ansible@192.168.1.130 ansible@<current VM address>
 ```
+
+## Linting
+
+Config lives at `ansible/bootstrap/.ansible-lint` and repo-root `.yamllint`.
+
+```bash
+cd ansible/bootstrap && ansible-lint .
+yamllint ansible/ inventory/
+```
+
+`ansible-lint` uses the `.ansible-lint` found in the current working directory, not the
+repo root — always run it from `ansible/bootstrap/`. `yamllint` doesn't need a specific
+cwd but shouldn't be pointed at `ansible.cfg` (INI format, not YAML) or anywhere under
+`.venv/`/`.ansible/` (gitignored, and yamllint doesn't know to skip them itself).

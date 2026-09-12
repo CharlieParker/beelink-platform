@@ -1,5 +1,29 @@
 # Session journal
 
+## 2026-09-12 — Consolidated on one ansible-lint config, wired up first CI thinking
+
+**Done.** Discovered the repo had two `.ansible-lint` files disagreeing with each other —
+root (`skip_list: [fqcn-builtins]`, 53 violations under `profile: production`) and
+`ansible/bootstrap/.ansible-lint` (five rules skipped, 39 violations) — because
+ansible-lint reads whichever config it finds in the current working directory, not the
+repo root. Deleted the root copy; `ansible/bootstrap/.ansible-lint` is now the only one,
+and the README documents that ansible-lint must be run from `ansible/bootstrap/`.
+
+**Learned.** `profile: production` is genuinely slow on a cold run (~a minute) — no
+persistent cache exists yet, and it's the strictest built-in profile. Not a hang, just
+thorough. `yamllint` shouldn't be pointed at `ansible.cfg` — it's INI, not YAML, and gives
+a meaningless syntax error if you do.
+
+**Open findings, not yet fixed.** 32 `var-naming[no-role-prefix]` (registered/set_fact
+variables across all seven roles need a role-name prefix), 5 `no-changed-when` (installer/
+check tasks always reporting `changed`), plus a handful of trivial yamllint formatting
+issues (trailing whitespace, comment indentation, line length). Decided to fix rather than
+skip-list — both are genuine idempotency/naming-hygiene practice, not lab shortcuts.
+
+**Next.** Work through the `var-naming` and `no-changed-when` findings role by role, then
+add the actual GitHub Actions workflow and branch protection (Rung 1's PR-with-CI-flow
+item) once the repo lints clean.
+
 ## 2026-09-11 — Rollback drilled twice: InvalidImageName and ImagePullBackOff
 
 **Done.** Ran the git-revert rollback exercise from `next-up.md`, twice, deliberately hitting
