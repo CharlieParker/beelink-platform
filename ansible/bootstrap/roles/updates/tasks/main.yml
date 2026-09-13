@@ -20,18 +20,18 @@
 
 - name: Check for pending package upgrades
   command: apt list --upgradable
-  register: pending_upgrades
+  register: updates_pending_upgrades
   changed_when: false
 
 - name: Check whether a reboot is required
   stat:
     path: /var/run/reboot-required
-  register: reboot_required_stat
+  register: updates_reboot_required_stat
   changed_when: false
 
 - name: Check Ubuntu Pro/ESM status
   command: pro status --format json
-  register: pro_status_raw
+  register: updates_pro_status_raw
   changed_when: false
   failed_when: false
   # NOTE: field names below (services / name / status) are my best
@@ -41,7 +41,7 @@
 
 - name: Report patch status
   vars:
-    pro_status: "{{ (pro_status_raw.stdout | from_json) if (pro_status_raw.rc == 0) else {} }}"
+    pro_status: "{{ (updates_pro_status_raw.stdout | from_json) if (updates_pro_status_raw.rc == 0) else {} }}"
     esm_apps: >-
       {{ (pro_status.services | default([]) | selectattr('name', 'equalto', 'esm-apps')
           | map(attribute='status') | list | first | default('unknown')) }}
@@ -50,8 +50,8 @@
           | map(attribute='status') | list | first | default('unknown')) }}
   debug:
     msg: >-
-      {{ (pending_upgrades.stdout_lines | length) - 1 }} package(s) upgradable.
-      Reboot required: {{ reboot_required_stat.stat.exists }}.
+      {{ (updates_pending_upgrades.stdout_lines | length) - 1 }} package(s) upgradable.
+      Reboot required: {{ updates_reboot_required_stat.stat.exists }}.
       Ubuntu Pro — esm-apps: {{ esm_apps }}, esm-infra: {{ esm_infra }}.
 
 # --- Tier 2a: pinned-tool freshness (opt-in) ---
@@ -60,7 +60,7 @@
   uri:
     url: https://cdn.dl.k8s.io/release/stable.txt
     return_content: true
-  register: kubectl_latest_raw
+  register: updates_kubectl_latest_raw
   failed_when: false
   changed_when: false
   tags: [version_check]
@@ -69,7 +69,7 @@
   uri:
     url: https://api.github.com/repos/k3d-io/k3d/releases/latest
     return_content: true
-  register: k3d_latest_raw
+  register: updates_k3d_latest_raw
   failed_when: false
   changed_when: false
   tags: [version_check]
@@ -78,7 +78,7 @@
   uri:
     url: https://api.github.com/repos/argoproj/argo-cd/releases/latest
     return_content: true
-  register: argocd_latest_raw
+  register: updates_argocd_latest_raw
   failed_when: false
   changed_when: false
   tags: [version_check]
@@ -87,7 +87,7 @@
   uri:
     url: "https://api.github.com/repos/helm/helm/releases?per_page=20"
     return_content: true
-  register: helm_latest_raw
+  register: updates_helm_latest_raw
   failed_when: false
   changed_when: false
   tags: [version_check]
@@ -96,7 +96,7 @@
   uri:
     url: https://api.releases.hashicorp.com/v1/releases/terraform/latest
     return_content: true
-  register: terraform_latest_raw
+  register: updates_terraform_latest_raw
   failed_when: false
   changed_when: false
   tags: [version_check]
@@ -105,29 +105,29 @@
   uri:
     url: https://pypi.org/pypi/localstack/json
     return_content: true
-  register: localstack_latest_raw
+  register: updates_localstack_latest_raw
   failed_when: false
   changed_when: false
   tags: [version_check]
 
 - name: Report pinned-tool freshness
   vars:
-    kubectl_latest: "{{ (kubectl_latest_raw.content | trim) if (kubectl_latest_raw.status | default(0) == 200) else '' }}"
+    kubectl_latest: "{{ (updates_kubectl_latest_raw.content | trim) if (updates_kubectl_latest_raw.status | default(0) == 200) else '' }}"
     k3d_latest: >-
-      {{ (k3d_latest_raw.json.tag_name)
-         if (k3d_latest_raw.status | default(0) == 200 and k3d_latest_raw.json is defined) else '' }}
+      {{ (updates_k3d_latest_raw.json.tag_name)
+         if (updates_k3d_latest_raw.status | default(0) == 200 and updates_k3d_latest_raw.json is defined) else '' }}
     argocd_latest: >-
-      {{ (argocd_latest_raw.json.tag_name)
-         if (argocd_latest_raw.status | default(0) == 200 and argocd_latest_raw.json is defined) else '' }}
+      {{ (updates_argocd_latest_raw.json.tag_name)
+         if (updates_argocd_latest_raw.status | default(0) == 200 and updates_argocd_latest_raw.json is defined) else '' }}
     helm_latest: >-
-      {{ (helm_latest_raw.json | selectattr('tag_name', 'match', '^v3\.') | map(attribute='tag_name') | list | first | default(''))
-         if (helm_latest_raw.status | default(0) == 200 and helm_latest_raw.json is defined) else '' }}
+      {{ (updates_helm_latest_raw.json | selectattr('tag_name', 'match', '^v3\.') | map(attribute='tag_name') | list | first | default(''))
+         if (updates_helm_latest_raw.status | default(0) == 200 and updates_helm_latest_raw.json is defined) else '' }}
     terraform_latest: >-
-      {{ (terraform_latest_raw.json.version)
-         if (terraform_latest_raw.status | default(0) == 200 and terraform_latest_raw.json is defined) else '' }}
+      {{ (updates_terraform_latest_raw.json.version)
+         if (updates_terraform_latest_raw.status | default(0) == 200 and updates_terraform_latest_raw.json is defined) else '' }}
     localstack_latest: >-
-      {{ (localstack_latest_raw.json.info.version)
-         if (localstack_latest_raw.status | default(0) == 200 and localstack_latest_raw.json is defined) else '' }}
+      {{ (updates_localstack_latest_raw.json.info.version)
+         if (updates_localstack_latest_raw.status | default(0) == 200 and updates_localstack_latest_raw.json is defined) else '' }}
     tools:
       - { name: "kubectl", pinned: "{{ kubectl_version }}", latest: "{{ kubectl_latest }}", checked: true }
       - { name: "k3d", pinned: "{{ k3d_version }}", latest: "{{ k3d_latest }}", checked: true }
@@ -155,7 +155,7 @@
   uri:
     url: https://endoflife.date/api/ubuntu.json
     return_content: true
-  register: ubuntu_eol_raw
+  register: updates_ubuntu_eol_raw
   failed_when: false
   changed_when: false
   tags: [version_check]
@@ -164,7 +164,7 @@
   uri:
     url: https://endoflife.date/api/kubernetes.json
     return_content: true
-  register: k8s_eol_raw
+  register: updates_k8s_eol_raw
   failed_when: false
   changed_when: false
   tags: [version_check]
@@ -174,11 +174,11 @@
     ubuntu_cycle: "{{ ansible_distribution_version }}"
     kubectl_cycle: "{{ kubectl_version | regex_replace('^v?(\\d+\\.\\d+).*', '\\1') }}"
     ubuntu_entry: >-
-      {{ (ubuntu_eol_raw.json | selectattr('cycle', 'equalto', ubuntu_cycle) | list | first | default({}))
-         if (ubuntu_eol_raw.status | default(0) == 200 and ubuntu_eol_raw.json is defined) else {} }}
+      {{ (updates_ubuntu_eol_raw.json | selectattr('cycle', 'equalto', ubuntu_cycle) | list | first | default({}))
+         if (updates_ubuntu_eol_raw.status | default(0) == 200 and updates_ubuntu_eol_raw.json is defined) else {} }}
     k8s_entry: >-
-      {{ (k8s_eol_raw.json | selectattr('cycle', 'equalto', kubectl_cycle) | list | first | default({}))
-         if (k8s_eol_raw.status | default(0) == 200 and k8s_eol_raw.json is defined) else {} }}
+      {{ (updates_k8s_eol_raw.json | selectattr('cycle', 'equalto', kubectl_cycle) | list | first | default({}))
+         if (updates_k8s_eol_raw.status | default(0) == 200 and updates_k8s_eol_raw.json is defined) else {} }}
     checks:
       - name: "Ubuntu {{ ubuntu_cycle }}"
         line: >-
