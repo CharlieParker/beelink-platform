@@ -242,6 +242,11 @@ forward ahead of Rung 2/3, per §13's reweighting) — see the journal entry for
   Still to write: the real seven-role `converge.yml` and `verify.yml` assertions, then a
   first full `molecule test` run. See journal 2026-09-07 for the bugs found/fixed along
   the way.
+  **Follow-on once converge.yml/verify.yml exist:** register the Beelink as a self-hosted
+  GitHub Actions runner so a PR can trigger a real `molecule test` (create → converge →
+  verify → destroy) as CI, running as a parallel job alongside the free-cloud-runner
+  `ansible-lint`/`yamllint` check. Not required for today's initial PR gate — a real
+  security model for self-hosted runners is worth understanding before switching one on.
 - [ ] Repo on a real PR-with-CI flow — branch protection, `ansible-lint`/`yamllint` in
   GitHub Actions. Not started.
 
