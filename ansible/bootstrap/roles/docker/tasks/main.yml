@@ -43,14 +43,14 @@
 
 - name: Show held packages
   command: apt-mark showhold
-  register: held_packages
+  register: docker_held_packages
   changed_when: false
 
 - name: Unhold held packages (if any)
   command: apt-mark unhold "{{ item }}"
-  loop: "{{ held_packages.stdout_lines }}"
-  register: unhold_results
-  when: held_packages.stdout_lines | length > 0
+  loop: "{{ docker_held_packages.stdout_lines }}"
+  register: docker_unhold_results
+  when: docker_held_packages.stdout_lines | length > 0
   changed_when: true
 
 - name: Fail if any unhold operation failed
@@ -60,22 +60,22 @@
       Please inspect the node and unhold them manually.
   vars:
     failed_unholds: >-
-      {{ (unhold_results.results
+      {{ (docker_unhold_results.results
           | selectattr('rc', 'ne', 0)
           | map(attribute='item')
-          | list) if (unhold_results is defined) else [] }}
-  when: unhold_results is defined and (unhold_results.results | selectattr('rc', 'ne', 0) | list | length) > 0
+          | list) if (docker_unhold_results is defined) else [] }}
+  when: docker_unhold_results is defined and (docker_unhold_results.results | selectattr('rc', 'ne', 0) | list | length) > 0
 
 - name: Check dpkg audit for broken packages
   command: dpkg -C
-  register: dpkg_audit
+  register: docker_dpkg_audit
   changed_when: false
 
 - name: Repair dpkg/apt state if dpkg audit reports problems
   command: /bin/bash -lc "apt-get -f install -y && dpkg --configure -a"
-  when: dpkg_audit.stdout != ""
-  register: dpkg_repair
-  changed_when: "'installed' in dpkg_repair.stdout or dpkg_repair.rc == 0"
+  when: docker_dpkg_audit.stdout != ""
+  register: docker_dpkg_repair
+  changed_when: "'installed' in docker_dpkg_repair.stdout or docker_dpkg_repair.rc == 0"
 
 - name: Purge known conflicting Docker Inc and plugin packages
   apt:
