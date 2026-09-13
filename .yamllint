@@ -5,3 +5,5 @@ rules:
     level: warning
   indentation:
     spaces: 2
+  braces:
+    max-spaces-inside: 1
