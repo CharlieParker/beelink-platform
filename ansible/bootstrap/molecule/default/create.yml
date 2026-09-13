@@ -124,6 +124,7 @@
       ansible.builtin.command: >
         qemu-img create -f qcow2 -F qcow2 -b {{ base_image_path }}
         {{ overlay_path }}
+      changed_when: true
       become: true
       delegate_to: beelink_target
       when: existing_vm.rc != 0
@@ -166,6 +167,7 @@
         cloud-localds {{ seed_iso_path }}
         {{ libvirt_pool_dir }}/{{ vm_name }}-user-data
         {{ libvirt_pool_dir }}/{{ vm_name }}-meta-data
+      changed_when: true
       become: true
       delegate_to: beelink_target
       when: existing_vm.rc != 0
@@ -179,6 +181,7 @@
         --network network=default
         --os-variant ubuntu22.04
         --graphics none --noautoconsole
+      changed_when: true
       become: true
       delegate_to: beelink_target
       when: existing_vm.rc != 0
