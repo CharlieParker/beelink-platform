@@ -33,7 +33,7 @@
 - name: Remove Docker repo from main sources.list if present
   lineinfile:
     path: /etc/apt/sources.list
-    regexp: '^deb .*download\.docker\.com'
+    regexp: "^deb .*download\\.docker\\.com"
     state: absent
 
 - name: Update apt cache
@@ -64,8 +64,7 @@
           | selectattr('rc', 'ne', 0)
           | map(attribute='item')
           | list) if (unhold_results is defined) else [] }}
-  when: unhold_results is defined and
-        (unhold_results.results | selectattr('rc', 'ne', 0) | list | length) > 0
+  when: unhold_results is defined and (unhold_results.results | selectattr('rc', 'ne', 0) | list | length) > 0
 
 - name: Check dpkg audit for broken packages
   command: dpkg -C

@@ -15,7 +15,7 @@
   get_url:
     url: "https://dl.k8s.io/release/{{ kubectl_version }}/bin/linux/amd64/kubectl"
     dest: /usr/local/bin/kubectl
-    mode: '0755'
+    mode: "0755"
     owner: root
     group: root
     force: true
@@ -30,7 +30,7 @@
   get_url:
     url: "https://github.com/k3d-io/k3d/releases/download/{{ k3d_version }}/k3d-linux-amd64"
     dest: /usr/local/bin/k3d
-    mode: '0755'
+    mode: "0755"
     owner: root
     group: root
     force: true
@@ -45,7 +45,7 @@
   get_url:
     url: "https://github.com/argoproj/argo-cd/releases/download/{{ argocd_version }}/argocd-linux-amd64"
     dest: /usr/local/bin/argocd
-    mode: '0755'
+    mode: "0755"
     owner: root
     group: root
     force: true
@@ -73,8 +73,7 @@
           plain rc={{ kubectl_verify_plain.rc | default('N/A') }}.
           json_out={{ kubectl_verify_json.stdout | default('') }},
           plain_out={{ kubectl_verify_plain.stdout | default('') }}.
-      when: kubectl_verify_json.rc != 0 and
-            (kubectl_verify_plain is not defined or kubectl_verify_plain.rc != 0)
+      when: kubectl_verify_json.rc != 0 and (kubectl_verify_plain is not defined or kubectl_verify_plain.rc != 0)
   rescue:
     - name: Debug kubectl verify outputs on rescue
       debug:

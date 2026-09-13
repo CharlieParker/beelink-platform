@@ -8,7 +8,6 @@ dependency:
     role-file: requirements.yml
     requirements-file: requirements.yml
 
-
 # The instance name(s) Molecule expects create.yml to produce. login/list
 # cross-check this against the instance-config file create.yml dumps — with
 # nothing declared here, Molecule has no name to look for, even though the

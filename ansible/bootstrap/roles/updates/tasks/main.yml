@@ -129,13 +129,13 @@
       {{ (localstack_latest_raw.json.info.version)
          if (localstack_latest_raw.status | default(0) == 200 and localstack_latest_raw.json is defined) else '' }}
     tools:
-      - {name: "kubectl", pinned: "{{ kubectl_version }}", latest: "{{ kubectl_latest }}", checked: true}
-      - {name: "k3d", pinned: "{{ k3d_version }}", latest: "{{ k3d_latest }}", checked: true}
-      - {name: "argocd", pinned: "{{ argocd_version }}", latest: "{{ argocd_latest }}", checked: true}
-      - {name: "helm", pinned: "{{ helm_version }}", latest: "{{ helm_latest }}", checked: true}
-      - {name: "terraform", pinned: "{{ terraform_version }}", latest: "{{ terraform_latest }}", checked: true}
-      - {name: "localstack", pinned: "{{ localstack_version | default('(unpinned)') }}", latest: "{{ localstack_latest }}", checked: true}
-      - {name: "aws-cli", pinned: "{{ aws_cli_version }}", latest: "", checked: false}
+      - { name: "kubectl", pinned: "{{ kubectl_version }}", latest: "{{ kubectl_latest }}", checked: true }
+      - { name: "k3d", pinned: "{{ k3d_version }}", latest: "{{ k3d_latest }}", checked: true }
+      - { name: "argocd", pinned: "{{ argocd_version }}", latest: "{{ argocd_latest }}", checked: true }
+      - { name: "helm", pinned: "{{ helm_version }}", latest: "{{ helm_latest }}", checked: true }
+      - { name: "terraform", pinned: "{{ terraform_version }}", latest: "{{ terraform_latest }}", checked: true }
+      - { name: "localstack", pinned: "{{ localstack_version | default('(unpinned)') }}", latest: "{{ localstack_latest }}", checked: true }
+      - { name: "aws-cli", pinned: "{{ aws_cli_version }}", latest: "", checked: false }
   debug:
     msg: >-
       {{ '%-11s' | format(item.name) }} pinned {{ '%-16s' | format(item.pinned) }}
