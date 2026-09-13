@@ -87,10 +87,12 @@
 
 - name: Run AWS CLI v2 installer (fresh install)
   command: /opt/download-cache/aws/install
+  changed_when: true
   when: cli_tools_aws_needs_install and not cli_tools_aws_stat.stat.exists
 
 - name: Run AWS CLI v2 installer (update existing install)
   command: /opt/download-cache/aws/install --update
+  changed_when: true
   when: cli_tools_aws_needs_install and cli_tools_aws_stat.stat.exists
 
 - name: Verify AWS CLI version matches the pin
