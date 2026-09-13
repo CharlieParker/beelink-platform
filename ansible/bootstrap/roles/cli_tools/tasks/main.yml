@@ -32,7 +32,7 @@
   copy:
     src: /opt/download-cache/linux-amd64/helm
     dest: /usr/local/bin/helm
-    mode: '0755'
+    mode: "0755"
     owner: root
     group: root
     remote_src: true
@@ -74,7 +74,7 @@
   get_url:
     url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-{{ aws_cli_version }}.zip"
     dest: /opt/download-cache/awscliv2.zip
-    mode: '0644'
+    mode: "0644"
     force: true
   when: aws_needs_install
 
