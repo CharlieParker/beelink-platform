@@ -17,7 +17,7 @@
 
 - name: Check current helm version, if installed
   command: /usr/local/bin/helm version --short
-  register: helm_current
+  register: cli_tools_helm_current
   changed_when: false
   failed_when: false
 
@@ -26,7 +26,7 @@
     src: "https://get.helm.sh/helm-{{ helm_version }}-linux-amd64.tar.gz"
     dest: /opt/download-cache
     remote_src: true
-  when: helm_current.rc != 0 or helm_version not in helm_current.stdout
+  when: cli_tools_helm_current.rc != 0 or helm_version not in cli_tools_helm_current.stdout
 
 - name: Install helm binary to /usr/local/bin
   copy:
@@ -36,13 +36,13 @@
     owner: root
     group: root
     remote_src: true
-  when: helm_current.rc != 0 or helm_version not in helm_current.stdout
+  when: cli_tools_helm_current.rc != 0 or helm_version not in cli_tools_helm_current.stdout
 
 - name: Verify helm version matches the pin
   command: /usr/local/bin/helm version --short
-  register: helm_verify
+  register: cli_tools_helm_verify
   changed_when: false
-  failed_when: helm_version not in helm_verify.stdout
+  failed_when: helm_version not in cli_tools_helm_verify.stdout
 
 # --- AWS CLI v2 ---
 # The installer script itself needs different handling for a fresh install
@@ -53,22 +53,22 @@
 - name: Check if AWS CLI is already installed
   stat:
     path: /usr/local/bin/aws
-  register: aws_stat
+  register: cli_tools_aws_stat
   changed_when: false
 
 - name: Check current AWS CLI version, if installed
   command: aws --version
-  register: aws_current
+  register: cli_tools_aws_current
   changed_when: false
   failed_when: false
-  when: aws_stat.stat.exists
+  when: cli_tools_aws_stat.stat.exists
 
 - name: Determine whether AWS CLI needs (re)installing
   set_fact:
-    aws_needs_install: >-
-      {{ (not aws_stat.stat.exists) or
-         (aws_current.rc | default(1)) != 0 or
-         (aws_cli_version not in (aws_current.stdout | default(''))) }}
+    cli_tools_aws_needs_install: >-
+      {{ (not cli_tools_aws_stat.stat.exists) or
+         (cli_tools_aws_current.rc | default(1)) != 0 or
+         (aws_cli_version not in (cli_tools_aws_current.stdout | default(''))) }}
 
 - name: Download AWS CLI v2 installer ({{ aws_cli_version }})
   get_url:
@@ -76,25 +76,25 @@
     dest: /opt/download-cache/awscliv2.zip
     mode: "0644"
     force: true
-  when: aws_needs_install
+  when: cli_tools_aws_needs_install
 
 - name: Unarchive AWS CLI v2 installer
   unarchive:
     src: /opt/download-cache/awscliv2.zip
     dest: /opt/download-cache
     remote_src: true
-  when: aws_needs_install
+  when: cli_tools_aws_needs_install
 
 - name: Run AWS CLI v2 installer (fresh install)
   command: /opt/download-cache/aws/install
-  when: aws_needs_install and not aws_stat.stat.exists
+  when: cli_tools_aws_needs_install and not cli_tools_aws_stat.stat.exists
 
 - name: Run AWS CLI v2 installer (update existing install)
   command: /opt/download-cache/aws/install --update
-  when: aws_needs_install and aws_stat.stat.exists
+  when: cli_tools_aws_needs_install and cli_tools_aws_stat.stat.exists
 
 - name: Verify AWS CLI version matches the pin
   command: aws --version
-  register: aws_verify
+  register: cli_tools_aws_verify
   changed_when: false
-  failed_when: aws_cli_version not in aws_verify.stdout
+  failed_when: aws_cli_version not in cli_tools_aws_verify.stdout
