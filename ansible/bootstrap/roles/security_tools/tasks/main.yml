@@ -29,9 +29,9 @@
 
 - name: Verify Trivy is installed
   command: trivy --version
-  register: trivy_verify
+  register: security_tools_trivy_verify
   changed_when: false
-  failed_when: trivy_verify.rc != 0
+  failed_when: security_tools_trivy_verify.rc != 0
 
 - name: Install Checkov {{ checkov_version }}
   pip:
@@ -41,6 +41,6 @@
 
 - name: Verify Checkov version matches the pin
   command: checkov --version
-  register: checkov_verify
+  register: security_tools_checkov_verify
   changed_when: false
-  failed_when: checkov_version not in checkov_verify.stdout
+  failed_when: checkov_version not in security_tools_checkov_verify.stdout
