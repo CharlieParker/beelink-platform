@@ -13,11 +13,11 @@
 
 - name: Verify terraform version matches the pin
   command: terraform -version
-  register: terraform_verify
+  register: hashicorp_terraform_verify
   changed_when: false
-  failed_when: terraform_version not in terraform_verify.stdout
+  failed_when: terraform_version not in hashicorp_terraform_verify.stdout
 
-- name: Install LocalStack {{ localstack_version }} via pip
+- name: Install LocalStack via pip, version {{ localstack_version }}
   pip:
     name: "localstack=={{ localstack_version }}"
     executable: pip3
@@ -31,6 +31,6 @@
   # CLAUDE.md), so this now runs the real CLI again, which also doubles as
   # confirmation the upstream fix actually landed on this box.
   command: localstack --version
-  register: localstack_verify
+  register: hashicorp_localstack_verify
   changed_when: false
-  failed_when: (localstack_verify.rc != 0) or (localstack_version not in localstack_verify.stdout)
+  failed_when: (hashicorp_localstack_verify.rc != 0) or (localstack_version not in hashicorp_localstack_verify.stdout)
