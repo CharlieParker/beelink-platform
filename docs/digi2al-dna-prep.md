@@ -479,6 +479,21 @@ job spec PDF) and tracking `docs/`.
 **Status (updated 2026-09-05):** Rung 0 complete. Detailed checklist in
 `beelink-platform/CLAUDE.md`. Rung 1: roles refactor and version pinning complete 2026-09-05; Molecule and the PR/CI flow still open — see the Rung 1 checklist there.
 
+**Molecule scope decision (2026-09-14):** the last open Rung 1 item — the real seven-role
+`converge.yml`/`verify.yml` and a first full `molecule test` run — is **deferred, not
+dropped.** `create.yml`/`destroy.yml` are already done and proven (full create → login →
+destroy cycle, including SSH bastion routing to the VM via the Beelink), which is the harder
+half of the Molecule work; writing per-role converge assertions against code that already
+runs cleanly is the more mechanical remainder. Rung 1's other named goal — a real PR-with-CI
+flow — is also done: `ansible-lint`/`yamllint` are clean, `.github/workflows/lint.yml` runs
+on every PR, and branch protection on `main` is live via a Ruleset (confirmed 2026-09-14, see
+journal). With both of those closed, **Rung 2** (the FastAPI + React portfolio slice) is
+higher marginal value right now — it unblocks Rung 3 and is a genuinely differentiating hour
+per §13.6 — so it goes next. Return to `converge.yml`/`verify.yml` before or alongside Rung 3,
+and in any case before registering the Beelink as a self-hosted GitHub Actions runner (the
+Rung 1 checklist's follow-on item in `beelink-platform/CLAUDE.md`), since that follow-on needs
+the real converge/verify to exist first.
+
 **Ladder re-cut 2026-09-07** on the evidence in §13: Rung 2 shrunk and re-scoped, Rung 4b added,
 Rung 6 retargeted, Rung 8's demo aimed at the platform, and two cheap items added to the
 "running alongside" list. Rungs 0, 1, 3, 5 and 7 are unchanged.
