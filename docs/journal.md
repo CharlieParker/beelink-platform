@@ -1,5 +1,49 @@
 # Session journal
 
+## 2026-09-14 — ansible-lint/yamllint cleanup complete, PR gate live
+
+**Done.** Fixed all 32 `var-naming[no-role-prefix]` findings across all seven roles
+(`cli_tools`, `docker`, `hashicorp`, `k8s_tools`, `security_tools`, `updates`, plus
+`common` needed none), one branch/PR per role. Fixed all 5 `no-changed-when` findings —
+2 in `cli_tools`'s AWS CLI installer tasks, 3 in `molecule/default/create.yml`'s
+VM-provisioning tasks — all with `changed_when: true`, since each is gated behind a
+precondition (`aws_needs_install`, `existing_vm.rc != 0`) that's already true by the time
+the task runs. Fixed the 1 `name[template]` finding on `hashicorp`'s LocalStack install
+task by moving the Jinja to the end of the task name. `ansible-lint .` now passes the
+`production` profile outright.
+
+**Also fixed, not originally on the list.** `yamllint` and `ansible-lint --fix` turned out
+to actively disagree on brace-spacing style (`{name: x}` vs `{ name: x }`) — the very first
+auto-fix PR had applied ansible-lint's preferred padded style, which yamllint's default
+config then flagged as an error. Resolved by relaxing `.yamllint`'s `braces` rule
+(`max-spaces-inside: 1`) rather than fighting the two tools against each other. Also fixed
+`yamllint`'s comment-spacing warnings. Left `yamllint`'s line-length warnings as-is —
+already a deliberate `level: warning` in the existing config, and CI runs
+`yamllint --no-warnings` so only real errors gate a merge.
+
+**CI is live.** Added `.github/workflows/lint.yml` — `pull_request`-triggered, runs
+`ansible-lint` (from `ansible/bootstrap`) and `yamllint --no-warnings` (from the repo
+root) with pinned tooling from `requirements.txt`/`requirements.yml`. Proven working on
+its own PR (#14). Turned on branch protection for `main` via a **Ruleset** (GitHub's
+newer replacement for classic branch protection rules, chosen deliberately over the
+legacy path): PR required with 0 approvals, `lint` status check required, branches must
+be up to date before merging, force pushes blocked, deletions restricted, merge method
+restricted to squash-only. Confirmed a direct push to `main` is rejected.
+
+**Learned.** GitHub's required-status-check picker in Rulesets offers a generic
+"Add '&lt;text&gt;' Any Source" option for literally anything typed, whether or not a real
+check by that name has ever run — the real signal is a suggestion explicitly tied to a
+source (e.g. "GitHub Actions"), not the freeform fallback. Also: the earlier
+`community.general` duplicate-version warning turned out to be an inactive venv, not a
+real project config problem — no fix was actually needed once the venv was properly
+activated.
+
+**Next.** Write the real `converge.yml` (apply all seven roles, not the scaffold
+placeholder) and `verify.yml` assertions, then a first full `molecule test` run — the
+last open Rung 1 item. Once that exists: register the Beelink as a self-hosted GitHub
+Actions runner so `molecule test` can run as a parallel CI job alongside the cloud-hosted
+lint check (noted in `CLAUDE.md`'s Rung 1 checklist).
+
 ## 2026-09-12 — Consolidated on one ansible-lint config, wired up first CI thinking
 
 **Done.** Discovered the repo had two `.ansible-lint` files disagreeing with each other —
