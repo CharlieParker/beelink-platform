@@ -109,7 +109,7 @@ recurs in the same session unless he asks for a refresher.
 ## Current state
 
 **Rung 0 — Make the lab trustworthy: complete (8 of 8 checklist items, 2026-09-05).**
-**Rung 1 — Make the existing work good: roles refactor + pinning complete 2026-09-05, Molecule and the PR/CI flow still open.** See the Rung 1 checklist below.
+**Rung 1 — Make the existing work good: roles refactor + pinning complete 2026-09-05; ansible-lint/yamllint cleanup and the PR/CI gate (branch ruleset, required `Lint / lint` check) complete and proven 2026-09-14. Molecule's real `converge.yml`/`verify.yml` deliberately deferred in favour of Rung 2 — see `docs/digi2al-dna-prep.md` §11's 2026-09-14 addendum.** See the Rung 1 checklist below.
 See `docs/digi2al-dna-prep.md` §11 for the full ladder.
 
 **Ladder re-cut 2026-09-07** after a research pass on Digi2al's live job adverts, the Royal
@@ -241,14 +241,18 @@ forward ahead of Rung 2/3, per §13's reweighting) — see the journal entry for
   routing to the VM via the Beelink — see README "Logging into the VM Molecule creates").
   Still to write: the real seven-role `converge.yml` and `verify.yml` assertions, then a
   first full `molecule test` run. See journal 2026-09-07 for the bugs found/fixed along
-  the way.
+  the way. **Deliberately deferred 2026-09-14** in favour of Rung 2 — see prep doc §11's
+  2026-09-14 addendum for the reasoning; pick back up before or alongside Rung 3.
   **Follow-on once converge.yml/verify.yml exist:** register the Beelink as a self-hosted
   GitHub Actions runner so a PR can trigger a real `molecule test` (create → converge →
   verify → destroy) as CI, running as a parallel job alongside the free-cloud-runner
   `ansible-lint`/`yamllint` check. Not required for today's initial PR gate — a real
   security model for self-hosted runners is worth understanding before switching one on.
-- [ ] Repo on a real PR-with-CI flow — branch protection, `ansible-lint`/`yamllint` in
-  GitHub Actions. Not started.
+- [x] Repo on a real PR-with-CI flow — done 2026-09-14: `.github/workflows/lint.yml` runs
+  `ansible-lint` and `yamllint --no-warnings` on every PR (proven on PR #14); branch
+  protection on `main` via a Ruleset (PR required, 0 approvals, `lint` check required,
+  up-to-date-before-merge, force pushes blocked, deletions restricted, squash-only).
+  Confirmed a direct push to `main` is rejected. See journal 2026-09-14.
 
 *Keep this section current — it is the fastest way for a new session to pick up the thread.*
 
