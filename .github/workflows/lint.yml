@@ -1,0 +1,30 @@
+name: Lint
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install pinned lint tooling
+        run: pip install -r requirements.txt
+
+      - name: Install pinned Ansible collections
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Run ansible-lint
+        working-directory: ansible/bootstrap
+        run: ansible-lint .
+
+      - name: Run yamllint
+        run: yamllint --no-warnings ansible/ inventory/
